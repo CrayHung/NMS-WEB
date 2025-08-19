@@ -1,0 +1,9 @@
+# docker-compose.yml
+version: "3.9"
+services:
+  web:
+    image: my-cms-nginx:latest   # 你會手動在主機用 Dockerfile.web build 出這個 image
+    container_name: cms-web
+    ports:
+      - "9080:80"                # 對外 9080
+    restart: unless-stopped

@@ -1,0 +1,131 @@
+/* App.css */
+
+/* ===== 基礎佈局關鍵 ===== */
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+  text-align: left;
+}
+
+/* 階層，避免遮蓋 */
+.sidebar { z-index: 100; }
+.header { z-index: 200; }
+
+/* ===== 全域 ===== */
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #f5f6fa;
+  color: #333;
+}
+
+/* Header */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  height: 60px;
+  background: #1abc9c;
+  padding: 0 20px;
+  box-sizing: border-box;
+}
+.header-title { color: #fff; margin: 0; }
+.header-icons {
+  position: relative;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: #fff;
+}
+
+/* Sidebar */
+.sidebar {
+  background: #111827;
+  color: #fff;
+  height: 100vh;
+  padding: 10px;
+  transition: all 0.3s;
+}
+.sidebar.expanded { width: 200px; }
+.sidebar.collapsed { width: 60px; }
+.sidebar a { color: #fff; text-decoration: none; }
+.sidebar-item { display: flex; align-items: center; gap: 10px; }
+.toggle-btn { background: none; border: none; color: #fff; cursor: pointer; }
+.hamburger { display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; color: #fff; }
+
+/* 主內容 */
+.main-content { flex: 1; padding: 20px; }
+
+/* Dashboard Grid */
+.dashboard-grid { display: flex; gap: 20px; padding: 20px; flex-wrap: wrap; }
+
+/* 卡片 */
+.card {
+  background: #fff;
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  margin-bottom: 20px;
+}
+
+/* 左圖表／右側欄 */
+.chart-card { flex: 2; min-width: 300px; }
+.side-panel { flex: 1; display: flex; flex-direction: column; gap: 20px; min-width: 250px; }
+
+/* 設備狀態 */
+.device-status-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+.device-status-item { display: flex; flex-direction: column; align-items: center; flex: 1 1 80px; }
+
+/* Log */
+.log-card { flex: 1; overflow-y: auto; }
+.log-list { padding: 0; list-style: none; margin: 0; }
+.log-item { border-bottom: 1px solid #ddd; padding: 6px 0; font-size: 14px; }
+
+/* 表格（若有頁面用到） */
+table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+th, td { border: 1px solid #ddd; padding: 8px; }
+th { background: #1abc9c; color: #fff; }
+tr:nth-child(even) { background: #f2f2f2; }
+
+/* 按鈕 */
+button {
+  background: #1abc9c; color: #fff; border: none;
+  padding: 6px 12px; border-radius: 4px; cursor: pointer;
+}
+button:hover { background: #16a085; }
+
+/* 其他（logo 動效保留） */
+.logo { height: 6em; padding: 1.5em; will-change: filter; transition: filter 300ms; }
+.logo:hover { filter: drop-shadow(0 0 2em #646cffaa); }
+.logo.react:hover { filter: drop-shadow(0 0 2em #61dafbaa); }
+@keyframes logo-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo { animation: logo-spin infinite 20s linear; }
+}
+
+/* RWD */
+@media (max-width: 640px) {
+  .dashboard-grid { flex-direction: column; }
+  .chart-card, .side-panel { flex: 1 1 100%; }
+}
+@media (max-width: 768px) {
+  .header { flex-direction: column; align-items: flex-start; padding: 10px; }
+  .header-title { margin-bottom: 10px; }
+}
+@media (min-width: 769px) {
+  .hamburger { display: none; } /* 桌面隱藏漢堡 */
+}
+@media (min-width: 641px) and (max-width: 1024px) {
+  .dashboard-grid { flex-direction: row; }
+  .chart-card { flex: 2; }
+  .side-panel { flex: 1; }
+}
+@media (min-width: 1025px) {
+  .dashboard-grid { flex-direction: row; }
+}

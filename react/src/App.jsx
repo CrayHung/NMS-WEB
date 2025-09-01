@@ -19,7 +19,7 @@ function AppRoutes() {
         element={user.isLoggedIn ? <ProtectedLayout /> : <Navigate to="/" replace />}
       />
 
-      {/* 未知路徑兜底 */}
+      {/* 未知路徑都nav到login葉面 */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

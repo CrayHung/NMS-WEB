@@ -14,33 +14,33 @@ export default function Login() {
     e.preventDefault();
     const ok = login(username, password);
     if (ok) {
-      navigate("/dashboard");
+      navigate("/map");
     } else {
-      setError("帳號或密碼錯誤");
+      setError("wrong username or password ");
     }
   };
 
   return (
     <div style={styles.container}>
       <div style={styles.card}>
-        <h2 style={styles.title}>登入</h2>
+        <h2 style={styles.title}>log in</h2>
         {error && <p style={styles.error}>{error}</p>}
         <form onSubmit={handleLogin} style={styles.form}>
           <input
             type="text"
-            placeholder="帳號（admin）"
+            placeholder="usernaame（admin）"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             style={styles.input}
           />
           <input
             type="password"
-            placeholder="密碼（1234）"
+            placeholder="password（1234）"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             style={styles.input}
           />
-          <button type="submit" style={styles.button}>登入</button>
+          <button type="submit" style={styles.button}>log in</button>
         </form>
       </div>
     </div>

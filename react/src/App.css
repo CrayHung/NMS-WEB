@@ -65,6 +65,10 @@ body {
 /* Dashboard Grid */
 .dashboard-grid { display: flex; gap: 20px; padding: 20px; flex-wrap: wrap; }
 
+/* node Grid */
+.node-grid { display: flex;gap: 20px; flex-wrap: wrap; }
+
+
 /* 卡片 */
 .card {
   background: #fff;
@@ -128,4 +132,64 @@ button:hover { background: #16a085; }
 }
 @media (min-width: 1025px) {
   .dashboard-grid { flex-direction: row; }
+}
+
+/* 讓導覽字串橫向排列，維持白字、間距 */
+.header-nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* 連結維持 header 的白字風格 */
+.header-nav .nav-link {
+  color: #fff;
+  text-decoration: none;
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+.header-nav .nav-link:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+/* 當前頁高亮（不突兀） */
+.header-nav .nav-link.active {
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+
+
+
+
+/* RWD 地圖容器：用 viewport 高度做比例，並加上下限/上限 */
+.map-container {
+  width: 100%;
+  height: clamp(260px, 60vh, 720px); /* 預設：60vh，最小 260px，最大 720px */
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+}
+
+/* 手機：稍微矮一點，避免占滿整頁 */
+@media (max-width: 640px) {
+  .map-container {
+    height: clamp(220px, 45vh, 520px);
+  }
+}
+
+/* 平板：中等高度 */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .map-container {
+    height: clamp(240px, 55vh, 640px);
+  }
+}
+
+/* 桌機：給更大的視野 */
+@media (min-width: 1025px) {
+  .map-container {
+    height: clamp(280px, 65vh, 780px);
+  }
 }

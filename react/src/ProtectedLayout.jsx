@@ -1,29 +1,27 @@
 // src/components/Layout/ProtectedLayout.jsx
-import React, { useState } from "react";
+// 多這一層可以避免渲染問題
+import React from "react";
 import { Routes, Route } from "react-router-dom";
-import Sidebar from "./components/Layout/Sidebar";
 import Header from "./components/Layout/Header";
-import Dashboard from "./pages/Dashboard/Dashboard";
+import Map from "./pages/Map/Map";
 import UserList from "./pages/Users/UserList";
-import Network from "./pages/Network/Network"
-import Events from "./pages/Events/Events"
-import Nodes from "./pages/Nodes/Nodes"
+import Network from "./pages/Network/Network";
+
+import Service from "./pages/Service/Service";
+import Nodes from "./pages/Nodes/Nodes";
 
 export default function ProtectedLayout() {
-  const [currentPage, setCurrentPage] = useState("Dashboard");
-
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
-      <Sidebar setCurrentPage={setCurrentPage} />
+
       <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-        <Header currentPage={currentPage} />
+        <Header />
         <div className="main-content">
-          {/* 這裡直接寫子路由 */}
           <Routes>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/network" element={<Network />} />
-            <Route path="/events" element={<Events />} />
+            <Route path="/map" element={<Map />} />
             <Route path="/nodes" element={<Nodes />} />
+            <Route path="/network" element={<Network />} />
+            <Route path="/Service" element={<Service />} />
 
 
           </Routes>

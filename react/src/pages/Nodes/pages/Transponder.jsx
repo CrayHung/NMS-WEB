@@ -1,11 +1,11 @@
 import React from 'react';
 
-const Events = () => {
+const Transponder = () => {
     return (
         <div>
-            Events
+            Transponder
         </div>
     );
 }
 
-export default Events;
+export default Transponder;

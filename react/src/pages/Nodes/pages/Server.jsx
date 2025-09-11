@@ -31,7 +31,7 @@ export default function Server() {
   /* 表單 */
   const [form, setForm] = useState({
     deviceName: "",
-    status: "online",
+    onlineStatus: true,
     type: "server",
     longitude: "",
     latitude: "",
@@ -89,7 +89,7 @@ export default function Server() {
     setEditingId(null);
     setForm({
       deviceName: "",
-      status: "online",
+      onlineStatus: true,
       type: "server",
       longitude: "",
       latitude: "",
@@ -104,7 +104,7 @@ export default function Server() {
     setEditingId(srv.deviceId ?? srv.id ?? null);
     setForm({
       deviceName: srv.deviceName ?? "",
-      status: srv.status ?? "online",
+      onlineStatus: srv.onlineStatus ?? true,
       type: "server",
       longitude: String(srv.longitude ?? ""),
       latitude: String(srv.latitude ?? ""),
@@ -136,7 +136,7 @@ export default function Server() {
     const payload = {
       deviceId: newId, // 新增時產一個 id；也可改為後端給
       deviceName: form.deviceName.trim(),
-      status: form.status ?? "online",
+      onlineStatus: form.onlineStatus ?? true,
       type: "server",
       longitude: String(form.longitude).trim(),
       latitude: String(form.latitude).trim(),
@@ -192,7 +192,7 @@ export default function Server() {
                 <th>IP</th>
                 <th>longitude</th>
                 <th>latitude</th>
-                <th>status</th>
+                <th>onlineStatus</th>
                 <th>createdBy</th>
                 <th>operation</th>
               </tr>
@@ -206,7 +206,7 @@ export default function Server() {
                     <td>{s.IP ?? "-"}</td>
                     <td>{s.longitude}</td>
                     <td>{s.latitude}</td>
-                    <td>{s.status ?? "online"}</td>
+                    <td>{s.onlineStatus ?? true}</td>
                     <td>{s.createdBy ?? "-"}</td>
                     <td style={{ whiteSpace: "nowrap" }}>
                       <button onClick={() => handleEdit(s)} style={{ marginRight: 8 }}>

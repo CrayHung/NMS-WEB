@@ -1,11 +1,11 @@
 import React from 'react';
 
-const Firewall = () => {
+const Firmware = () => {
     return (
         <div>
-            firewall
+            Firmware update
         </div>
     );
 }
 
-export default Firewall;
+export default Firmware;

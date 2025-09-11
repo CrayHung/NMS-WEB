@@ -1,55 +1,44 @@
 // src/components/Layout/Header.jsx
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useGlobalContext } from "../../GlobalContext";
-import { FaSignInAlt, FaSignOutAlt, FaGlobe, FaBell } from "react-icons/fa";
+import { FaSignInAlt, FaSignOutAlt, FaBell } from "react-icons/fa";
+import wsService from "../../service/websocket";
+import logo from "../../assets/twowaylogo.png";
 
 export default function Header() {
-  const { user, deviceData, logout, focusDeviceOnMap } = useGlobalContext();
+  const {
+    user, logout, focusDeviceOnMap,
+    alerts, addAlert, markAllAlertsRead, clearAllAlerts, 
+  } = useGlobalContext();
+
   const [showAlerts, setShowAlerts] = useState(false);
   const [now, setNow] = useState(new Date());
+  const [connected, setConnected] = useState(false);
+
+  const alarmIdCounter = useRef(0);
+  const bellRef = useRef(null);
+  const dropdownRef = useRef(null);
 
   const location = useLocation();
   const navigate = useNavigate();
 
-
-  // 依路由顯示標題 , 可以不要
+  // 標題（原樣）
   const currentPageTitle = useMemo(() => {
     const path = location.pathname.toLowerCase();
     if (path.startsWith("/map")) return "Map";
     if (path.startsWith("/network")) return "Network";
-
     if (path.startsWith("/service")) return "Service";
     if (path.startsWith("/nodes")) return "Nodes";
-
+    if (path.startsWith("/dashboard")) return "Dashboard";
     return "";
   }, [location.pathname]);
 
-  // 告警列表
-  const allAlerts = (deviceData || []).flatMap((device) =>
-    (device.alerts || []).map((alert) => ({
-      ...alert,
-      deviceId: device.deviceId,
-      deviceName: device.deviceName,
-    }))
-  );
-
-  // 登入登出
-  const handleAuthToggle = () => {
-    if (user?.isLoggedIn) {
-      logout();
-      navigate("/"); // 回登入頁
-    } else {
-      navigate("/"); // 去登入頁
-    }
-  };
-
+  // 時鐘（原樣）
   useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(timer);
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
   }, []);
-
-  // 時間格式
   const timeText = useMemo(
     () =>
       now.toLocaleString("zh-TW", {
@@ -60,178 +49,192 @@ export default function Header() {
         minute: "2-digit",
         second: "2-digit",
         hour12: false,
-        timeZone: "America/New_York",      //美國時間好像改timezone就可以...不用改en-US  zh-TW
+        timeZone: "America/New_York",
       }),
     [now]
   );
 
+  // 🔔 WebSocket 訂閱（只在 Header 做一次，所有頁共用 alerts）
+  useEffect(() => {
+    const ensureWs = () => {
+      if (wsService.getConnectionStatus?.()) {
+        setConnected(true);
+        subAlarms();
+      } else {
+        wsService.connect(() => {
+          setConnected(true);
+          subAlarms();
+        });
+      }
+    };
+    const subAlarms = () => {
+      wsService.subscribe("/topic/alarms", (data) => {
+        const payload = typeof data === "string" ? { message: data } : data || {};
+        const newOne = {
+          id: ++alarmIdCounter.current,
+          deviceEui: payload.deviceEui,
+          deviceName: payload.deviceName || payload.deviceEui || "Unknown",
+          message: payload.message || "Alarm",
+          level: Number(payload.level ?? 1),
+          timestamp: new Date(payload.timestamp || Date.now()),
+          acknowledged: false,
+        };
+        addAlert(newOne); // ⬅️ 寫入全域 alerts
+      });
+    };
+    ensureWs();
+    return () => wsService.unsubscribe("/topic/alarms");
+  }, [addAlert]);
+
+  // 點擊外部 & Esc 關閉
+  useEffect(() => {
+    const onDocClick = (e) => {
+      if (!showAlerts) return;
+      const inBell = bellRef.current?.contains(e.target);
+      const inDrop = dropdownRef.current?.contains(e.target);
+      if (!inBell && !inDrop) setShowAlerts(false);
+    };
+    const onKey = (e) => e.key === "Escape" && setShowAlerts(false);
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [showAlerts]);
+
+  useEffect(() => setShowAlerts(false), [location.pathname]);
+
+  const handleAuthToggle = () => {
+    if (user?.isLoggedIn) { logout(); navigate("/"); } else { navigate("/"); }
+  };
+
+  const unreadCount = useMemo(() => alerts.filter((a) => !a.acknowledged).length, [alerts]);
+
   return (
-    <header className="header" style={{ position: "relative" }}>
-      {/* 左標題 */}
-      <h2 className="header-title" style={{ marginRight: 16 }}>{currentPageTitle}</h2>
-
-      {/* 中主選單 */}
-      <nav
-        style={{
-          display: "flex",
-          gap: 16,
-          alignItems: "center",
-          flex: 1,
-        }}
-      >
-        <NavLink
-          to="/map"
-          style={({ isActive }) => ({
-            color: "#fff",
-            textDecoration: "none",
-            fontWeight: isActive ? 700 : 500,
-            opacity: isActive ? 1 : 0.9,
-          })}
-        >
-          Map
-        </NavLink>
-        <NavLink
-          to="/nodes"
-          style={({ isActive }) => ({
-            color: "#fff",
-            textDecoration: "none",
-            fontWeight: isActive ? 700 : 500,
-            opacity: isActive ? 1 : 0.9,
-          })}
-        >
-          Nodes
-        </NavLink>
-        <NavLink
-          to="/network"
-          style={({ isActive }) => ({
-            color: "#fff",
-            textDecoration: "none",
-            fontWeight: isActive ? 700 : 500,
-            opacity: isActive ? 1 : 0.9,
-          })}
-        >
-          Network
-        </NavLink>
-
-       
-
-
-
-        <NavLink
-          to="/service"
-          style={({ isActive }) => ({
-            color: "#fff",
-            textDecoration: "none",
-            fontWeight: isActive ? 700 : 500,
-            opacity: isActive ? 1 : 0.9,
-          })}
-        >
-          Service
-        </NavLink>
-
-       
+    <header className="header" style={{
+      position: "relative",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      padding: "0 20px",
+    }}>
+      {/* 左邊：Logo + Title */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <img
+         src={logo}
+          alt="Logo"
+          style={{ height: 32 }}
+        />
+        <h2 className="header-title" style={{ margin: 0 }}>
+          {currentPageTitle}
+        </h2>
+      </div>
+    
+      {/* 中間：Nav 固定置中 */}
+      <nav style={{
+        display: "flex",
+        gap: 12,
+        alignItems: "center",
+        position: "absolute",
+        left: "50%",
+        transform: "translateX(-50%)",
+      }}>
+        <NavLink to="/map" end className={({ isActive }) => `nav-pill${isActive ? " active" : ""}`}>Map</NavLink>
+        <NavLink to="/nodes" end className={({ isActive }) => `nav-pill${isActive ? " active" : ""}`}>Nodes</NavLink>
+        <NavLink to="/network" end className={({ isActive }) => `nav-pill${isActive ? " active" : ""}`}>Network</NavLink>
+        <NavLink to="/service" end className={({ isActive }) => `nav-pill${isActive ? " active" : ""}`}>Service</NavLink>
       </nav>
 
-      {/* 右使用者時間+小圖 */}
-      <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-        {/* 使用者名稱 + 實時時間 */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            color: "#fff",
-            whiteSpace: "nowrap",
-          }}
-        >
-          <span style={{ fontWeight: 600 }}>
-            {user?.isLoggedIn ? (user.username || "User") : "Guest"}
-          </span>
-          <span
-            style={{
-              fontVariantNumeric: "tabular-nums",
-              opacity: 0.95,
-            }}
-            title="目前時間（自動更新）"
-          >
-            {timeText}
-          </span>
+      {/* 右側 */}
+      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+        <div style={{ color: "#fff", whiteSpace: "nowrap" }}>
+          <strong>{user?.isLoggedIn ? (user.username || "User") : "Guest"}</strong>{" "}
+          <span style={{ fontVariantNumeric: "tabular-nums" }}>{timeText}</span>
         </div>
 
-        {/* 告警鈴鐺 */}
-        <div className="header-icons" onClick={() => setShowAlerts((prev) => !prev)}>
+        {/* 鈴鐺 */}
+        <div
+          ref={bellRef}
+          className="header-icons"
+          onClick={() => setShowAlerts((p) => !p)}
+          style={{ position: "relative", cursor: "pointer", color: "#fff" }}
+          title={connected ? "WebSocket Connected" : "WebSocket Disconnected"}
+        >
           <FaBell size={20} />
-          {allAlerts.length > 0 && (
-            <span
-              style={{
-                position: "absolute",
-                top: "-5px",
-                right: "-10px",
-                background: "red",
-                color: "#fff",
-                borderRadius: "50%",
-                padding: "2px 6px",
-                fontSize: "12px",
-              }}
-            >
-              {allAlerts.length}
+          {unreadCount > 0 && (
+            <span style={{
+              position: "absolute", top: -6, right: -8, background: "red", color: "#fff",
+              borderRadius: 999, padding: "1px 6px", fontSize: 11, fontWeight: 700
+            }}>
+              {unreadCount}
             </span>
           )}
         </div>
 
-        {/* 語言切換*/}
-        {/* <div className="header-icons" onClick={() => console.log("TODO: 切換語言")}>
-          <FaGlobe size={20} />
-        </div> */}
-
         {/* 登入登出 */}
-        <div className="header-icons" onClick={handleAuthToggle}>
+        <div className="header-icons" onClick={handleAuthToggle} style={{ cursor: "pointer", color: "#fff" }}>
           {user?.isLoggedIn ? <FaSignOutAlt size={20} /> : <FaSignInAlt size={20} />}
         </div>
       </div>
 
-      {/* 告警列表彈出 */}
+      {/* 下拉 */}
       {showAlerts && (
         <div
+          ref={dropdownRef}
           style={{
-            position: "absolute",
-            top: "60px",
-            right: "20px",
-            background: "#fff",
-            color: "#000",
-            borderRadius: "8px",
-            boxShadow: "0 4px 8px rgba(0,0,0,0.15)",
-            width: "300px",
-            maxHeight: "300px",
-            overflowY: "auto",
-            zIndex: 10,
+            position: "absolute", top: 60, right: 20, background: "#fff", color: "#000",
+            borderRadius: 8, boxShadow: "0 4px 8px rgba(0,0,0,0.15)", width: 360, maxHeight: 380,
+            overflow: "hidden", zIndex: 10, display: "flex", flexDirection: "column",
           }}
         >
-          <h4 style={{ margin: "10px", borderBottom: "1px solid #ccc", paddingBottom: "5px" }}>
-            wraning list
-          </h4>
-          {allAlerts.length > 0 ? (
-            allAlerts.map((alert, index) => (
+          <div style={{ display: "flex", alignItems: "center", padding: "10px 12px", borderBottom: "1px solid #eee" }}>
+            <strong style={{ flex: 1 }}>Alarms</strong>
+            <span style={{ marginRight: 8, fontSize: 12, color: connected ? "#22c55e" : "#dc2626", fontWeight: 600 }}>
+              {connected ? "Connected" : "Disconnected"}
+            </span>
+            <button onClick={markAllAlertsRead} style={{ fontSize: 12, marginRight: 6, border: "none", background: "transparent", color: "#2563eb", cursor: "pointer" }}>
+              Mark all read
+            </button>
+            <button onClick={clearAllAlerts} style={{ fontSize: 12, border: "none", background: "transparent", color: "#ef4444", cursor: "pointer" }}>
+              Clear
+            </button>
+          </div>
+
+          <div style={{ overflowY: "auto" }}>
+            {alerts.length ? alerts.map((a) => (
               <div
-                key={index}
-                style={{ padding: "8px 10px", borderBottom: "1px solid #eee", fontSize: "14px" }}
+                key={a.id}
+                // onClick={() => { a.deviceEui && focusDeviceOnMap?.(String(a.deviceEui), 16); navigate("/map"); setShowAlerts(false); }}
                 onClick={() => {
-                  if (typeof focusDeviceOnMap === "function") {
-                    focusDeviceOnMap(String(alert.deviceId), 16);
-                  }
-                  navigate("/map");
-                  setShowAlerts(false);
-                }}
-                title="focus device on map"
+                     a.deviceEui && focusDeviceOnMap?.(String(a.deviceEui), 16, true);
+                     navigate("/map");
+                     setShowAlerts(false);
+                   }}
+                style={{ padding: "10px 12px", borderBottom: "1px solid #f1f1f1", display: "grid", gridTemplateColumns: "1fr auto", gap: 8, background: a.acknowledged ? "#fafafa" : "#fff", cursor: "pointer" }}
               >
-                <strong>{alert.deviceName}</strong> - {alert.message}
-                <br />
-                <small style={{ color: "#555" }}>{new Date(alert.timestamp).toLocaleString()}</small>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: a.level === 2 ? "#ef4444" : a.level === 1 ? "#eab308" : "#06b6d4" }} />
+                    <strong style={{ fontSize: 14 }} title={a.deviceEui}>{a.deviceName || a.deviceEui}</strong>
+                  </div>
+                  <div style={{ fontSize: 13, color: "#444", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {a.message}
+                  </div>
+                  <div style={{ fontSize: 12, color: "#666", marginTop: 2 }}>
+                    {new Date(a.timestamp).toLocaleString()}
+                  </div>
+                </div>
+                <div>
+                  <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 999, fontSize: 12, fontWeight: 600, color: a.level === 2 ? "#fff" : "#111", background: a.level === 2 ? "#ef4444" : a.level === 1 ? "#fde047" : "#a3e635" }}>
+                    {a.level === 2 ? "Critical" : a.level === 1 ? "Warning" : "Info"}
+                  </span>
+                </div>
               </div>
-            ))
-          ) : (
-            <div style={{ padding: "10px", textAlign: "center", color: "#555" }}>no warning</div>
-          )}
+            )) : (
+              <div style={{ padding: 16, textAlign: "center", color: "#666" }}>No alarms</div>
+            )}
+          </div>
         </div>
       )}
     </header>

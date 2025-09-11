@@ -2,6 +2,9 @@
 // 多這一層可以避免渲染問題
 import React from "react";
 import { Routes, Route } from "react-router-dom";
+
+import {useGlobalContext} from "./GlobalContext";
+
 import Header from "./components/Layout/Header";
 import Map from "./pages/Map/Map";
 import UserList from "./pages/Users/UserList";
@@ -10,7 +13,11 @@ import Network from "./pages/Network/Network";
 import Service from "./pages/Service/Service";
 import Nodes from "./pages/Nodes/Nodes";
 
+import DeviceKpiDashboard from "./pages/Network/pages/DeviceKpiDashboard";
+
 export default function ProtectedLayout() {
+  const {  rawData  } = useGlobalContext();
+
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
 
@@ -22,6 +29,9 @@ export default function ProtectedLayout() {
             <Route path="/nodes" element={<Nodes />} />
             <Route path="/network" element={<Network />} />
             <Route path="/Service" element={<Service />} />
+
+
+            <Route path="/dashboard" element={<DeviceKpiDashboard device={rawData} historySize={60}/>} />
 
 
           </Routes>

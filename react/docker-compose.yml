@@ -1,9 +1,10 @@
-# docker-compose.yml
 version: "3.9"
 services:
   web:
-    image: my-cms-nginx:latest   # 你會手動在主機用 Dockerfile.web build 出這個 image
+    image: my-cms-nginx:latest   # 先用 Dockerfile.web build 出來
     container_name: cms-web
     ports:
-      - "9080:80"                # 對外 9080
+      - "9080:80"
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # 讓容器能連宿主機對外埠

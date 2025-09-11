@@ -159,6 +159,42 @@ button:hover { background: #16a085; }
   text-decoration: underline;
   font-weight: 600;
 }
+/* Header 導覽共用樣式 */
+.nav-pill{
+  color:#fff;
+  text-decoration:none;
+  padding:8px 14px;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,.35);
+  background:transparent;
+  font-weight:800;
+  letter-spacing:.2px;
+  display:inline-block;
+  line-height:1;
+  transition:background .15s ease, color .15s ease, opacity .15s ease, box-shadow .15s ease;
+  opacity:.85;
+}
+.nav-pill:hover{
+  opacity:1;
+  box-shadow:0 0 0 3px rgba(255,255,255,.18) inset;
+}
+
+/* 被選到（你的截圖那種半透明白底、邊框更明顯） */
+.nav-pill.active{
+  background:rgba(255,255,255,.22);
+  border-color:rgba(255,255,255,.6);
+  color:#fff;                /* 仍維持白字（搭你的綠色底） */
+  opacity:1;
+}
+
+/* 若想更強烈對比（選到變白底、字變綠）：把上面 .active 換成這組 */
+/*
+.nav-pill.active{
+  background:#fff;
+  color:#14b8a6;            // 和你的 header 綠相近
+  border-color:#fff;
+}
+*/
 
 
 

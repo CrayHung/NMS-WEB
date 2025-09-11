@@ -1,37 +1,86 @@
-// pages/Events/Events.jsx
-import React, { useState } from "react";
+import React, { useState,useEffect } from "react";
 import Events from "./pages/Events";
 import History from "./pages/History";
 import Download from "./pages/Download";
-import Firewall from "./pages/Firewall";
+import Firmware from "./pages/Firmware";
 import Notification from "./pages/Notification";
+import DeviceHistory from "./pages/DeviceHistory"
+import { useGlobalContext } from "../../GlobalContext";
+import { apiFetch,apiUrl } from '../../lib/api';
 
 export default function Service() {
+  const { user, deviceData, setDeviceData, deviceLink, setDeviceLink } = useGlobalContext();
+
+  const [data, setData] = useState([]);
+  useEffect(() => {
+
+
+
+    const fetchData = async () => {
+      try {
+
+        const res = await apiFetch(`/amplifier/devices`, { method: "GET" });
+        // const res = await fetch(API_BASE, {
+        //   method: "GET",
+        // });
+        if (!res.ok) {
+          const t = await res.text().catch(() => "");
+          throw new Error(`GET status failed (${res.status}): ${t || res.statusText}`);
+        }
+        const data = await res.json();
+        setData(data);
+      } catch (err) {
+        console.error(err);
+        alert(`error`);
+      } finally {
+        
+      }
+    }
+
+    fetchData();
+  }, []);
+
   const [active, setActive] = useState("Events");
   // 左側清單
-  const items = ["Events", "History", "Download", "firewall upgrade", "notification"];
+  const items = [ "Device History" , "Notification","History", "Events",  "Download", "Firmware update" ];
+  
   // 右側元件
   const renderContent = () => {
     switch (active) {
-      case "Events":
-        return <Events />;
+      case "Device History":
+        return <DeviceHistory />;
+
+      case "Notification":
+        return <Notification />;
       case "History":
         return <History />;
+        case "Events":
+          return <Events />;
       case "Download":
         return <Download />;
-      case "firewall upgrade":
-        return <Firewall />;
-      case "notification":
-        return <Notification />;
+      case "Firmware update":
+        return <Firmware />;
+
+
       default:
         return null;
     }
   };
 
   return (
-    <div className="dashboard-grid" style={{ alignItems: "flex-start" }}>
+    <div
+    className="dashboard-grid"
+    style={{
+      display: "grid",
+      gridTemplateColumns: "200px minmax(0, 1fr)",
+      gap: 16,
+      alignItems: "start",
+      maxWidth: "100vw",     // 不超出螢幕寬
+      boxSizing: "border-box",
+    }}
+  >
       {/* 左側控制bar */}
-      <div className="card" style={{ width: 300, padding: 0 }}>
+      <div className="card" style={{ width: 200, padding: 0 }}>
         {items.map((label) => {
           const isActive = active === label;
           return (
@@ -52,11 +101,12 @@ export default function Service() {
           );
         })}
       </div>
-
-      {/* 右側顯示區 */}
-      <div className="card" style={{ flex: "1 1 auto", minWidth: 0 }}>
+  
+      {/* 右側顯示區（只在右半邊渲染，包括 Notification） */}
+      <div  className="card" style={{ minWidth: 0, maxWidth: "100%", overflowX: "auto" }}>
         {renderContent()}
       </div>
     </div>
   );
+  
 }

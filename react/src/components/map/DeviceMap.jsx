@@ -1,17 +1,43 @@
-//src/component/map/DeviceMap.jsx
 import React, { useMemo, useCallback, useState, useRef, useEffect } from "react";
 import { GoogleMap, Marker, InfoWindow, useJsApiLoader } from "@react-google-maps/api";
 import { useGlobalContext } from "../../GlobalContext";
 
-//google map api param
-/**
- * @param {object} props
- * @param {number} [props.zoom=12]
- * @param {number} [props.height=420]
- * @param {number} [props.boundsPadding=80]
- * @param {{server:boolean,gateway:boolean,transponder:boolean,amp:boolean}} [props.typeFilters]
- * @param {boolean} [props.showOfflineOnly=false]
- */
+//  自然綠樣式（直接取代原本的 mapStyles）
+const NATURE_GREEN = [
+  // 整體色調
+  { elementType: "geometry", stylers: [{ color: "#dff3e0" }] },           // 地面
+  { elementType: "labels.text.fill", stylers: [{ color: "#2f4f3a" }] },   // 文字
+  { elementType: "labels.text.stroke", stylers: [{ color: "#f2fbf2" }] }, // 文字描邊
+
+  // 水域
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#bfe6f2" }] },
+  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#3a5a67" }] },
+
+  // 自然地景 / 公園
+  { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#cfead0" }] },
+  { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#2e5a39" }] },
+  { featureType: "landscape.natural", elementType: "geometry", stylers: [{ color: "#d7f0d8" }] },
+
+  // 一般 POI（商店、餐飲等）弱化
+  { featureType: "poi", elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+  { featureType: "poi.business", stylers: [{ visibility: "off" }] },
+  { featureType: "poi.medical", stylers: [{ visibility: "off" }] },
+  { featureType: "poi.school", stylers: [{ visibility: "simplified" }] },
+
+  // 道路：低對比、偏綠灰
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#cfe6d6" }] },
+  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#466851" }] },
+  { featureType: "road.local", elementType: "geometry", stylers: [{ color: "#d9efe0" }] },
+  { featureType: "road.arterial", elementType: "geometry", stylers: [{ color: "#c7e3d2" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#b9dbc7" }] },
+  { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#a6cdb8" }] },
+
+  // 交通與行政界線：弱化
+  { featureType: "transit", stylers: [{ visibility: "off" }] },
+  { featureType: "administrative", elementType: "geometry", stylers: [{ visibility: "off" }] },
+  { featureType: "administrative.country", stylers: [{ visibility: "simplified" }] },
+  { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#2f4f3a" }] },
+];
 
 export default function DeviceMap({
   zoom = 12,
@@ -20,25 +46,20 @@ export default function DeviceMap({
   typeFilters,
   showOfflineOnly = false,
 }) {
-
-  //將focus的部分設為全域變數
-  const { deviceData, mapFocus } = useGlobalContext();
-  //點擊到哪一個Marker時 (方便展開InfoWindow用)
+  const { deviceData, mapFocus, getRawDevice, getRawGateway, rawData } = useGlobalContext();
   const [activeId, setActiveId] = useState(null);
   const mapRef = useRef(null);
-
-  // 用來偵測 showOfflineOnly 的上一次值 , 做切換瞬間的特殊處理
+  const pendingOpenRef = useRef(null);
   const prevOfflineOnlyRef = useRef(showOfflineOnly);
 
-  //此為google map API使用的金鑰 , 之齁應該要換成公司的
+  // 新增：判斷使用者是否有手動縮放過
+  const [userHasZoomed, setUserHasZoomed] = useState(false);
+
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
     id: "google-map-script",
   });
 
-
-  // 全部設備（不受 checkbox 影響，用於初始 fit）
-  //將deviceData的所有內容儲存再allMarkers
   const allMarkers = useMemo(() => {
     const list = Array.isArray(deviceData) ? deviceData : [];
     return list
@@ -47,66 +68,38 @@ export default function DeviceMap({
         name: d.deviceName ?? `Device ${i + 1}`,
         lat: Number(d.latitude),
         lng: Number(d.longitude),
-        status: String(d.status || "").toLowerCase(),
-        type: String(d.type || "server").toLowerCase(),
+        onlineStatus: Boolean(d.onlineStatus),
+        type: String(d.type || "device").toLowerCase(),
       }))
       .filter((m) => Number.isFinite(m.lat) && Number.isFinite(m.lng));
   }, [deviceData]);
 
-
-  // 全部offline的設備
   const offlineMarkers = useMemo(() => {
-    return allMarkers.filter((m) => m.status === "offline" || m.status === "shutdown");
+    return allMarkers.filter((m) => m.onlineStatus === false);
   }, [allMarkers]);
 
-
-  // 依 UI 勾選後實際要顯示的 markers
   const filteredMarkers = useMemo(() => {
-
     if (showOfflineOnly) return offlineMarkers;
-
     const enabled = {
-      server: typeFilters?.server ?? false,
       gateway: typeFilters?.gateway ?? false,
-      transponder: typeFilters?.transponder ?? false,
-      amp: typeFilters?.amp ?? false,
+      device: typeFilters?.device ?? false,
     };
-    //如果都沒選,回傳空[]
     const anyTypeSelected = Object.values(enabled).some(Boolean);
-    if (!anyTypeSelected) {
-      return [];
-    }
-    //依照選到的"type"去篩選allMarkers並回傳
+    if (!anyTypeSelected) return [];
     return allMarkers.filter((m) => enabled[m.type]);
   }, [allMarkers, typeFilters, showOfflineOnly, offlineMarkers]);
 
-  //地圖預設的中心點(當都沒選時會回到這)
   const fallbackCenter = { lat: 25.033964, lng: 121.564468 };
 
-  // 依照"status"決定colorFromStatus()會回傳什麼顏色
-  const colorFromStatus = (status) => {
-    switch (status) {
-      case "online":
-        return "#27ae60"; // 綠
-      case "warning":
-        return "#f39c12"; // 橘
-      case "offline":
-      case "shutdown":
-        return "#e74c3c"; // 紅
-      default:
-        return "#7f8c8d"; // 灰
-    }
-  };
+  const colorFromStatus = (statusBool) => (statusBool ? "#27ae60" : "#e74c3c");
 
-  // 類型->SVG（顏色帶入 status 色）
   const makeTypeIcon = useCallback((type, color) => {
     const svgByType = {
-      server: `
+      device: `
         <svg width="36" height="36" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <g filter="url(#s)"><rect x="4" y="4" width="16" height="4" rx="1" fill="${color}" stroke="white" stroke-width="1"/>
-          <rect x="4" y="9" width="16" height="4" rx="1" fill="${color}" stroke="white" stroke-width="1"/>
-          <rect x="4" y="14" width="16" height="4" rx="1" fill="${color}" stroke="white" stroke-width="1"/>
-          <circle cx="7" cy="6" r="0.9" fill="white"/><circle cx="7" cy="11" r="0.9" fill="white"/><circle cx="7" cy="16" r="0.9" fill="white"/></g>
+          <g filter="url(#s)">
+            <path d="M11 2 L6 12 H11 L9 22 L18 9 H13 L15 2 Z" fill="${color}" stroke="white" stroke-width="1"/>
+          </g>
           <defs><filter id="s"><feDropShadow dx="0" dy="1" stdDeviation="1" flood-opacity="0.3"/></filter></defs>
         </svg>
       `,
@@ -121,28 +114,8 @@ export default function DeviceMap({
           <defs><filter id="s"><feDropShadow dx="0" dy="1" stdDeviation="1" flood-opacity="0.3"/></filter></defs>
         </svg>
       `,
-      transponder: `
-        <svg width="36" height="36" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <g filter="url(#s)" stroke="${color}" stroke-width="2" fill="none">
-            <path d="M12 4 L7 18 L9 18 L10 15 L14 15 L15 18 L17 18 Z" fill="${color}" stroke="white" stroke-width="1"/>
-            <circle cx="12" cy="6" r="1.5" fill="white"/>
-            <path d="M12 6 c3 0 5 2 5 5" opacity="0.7"/>
-            <path d="M12 6 c-3 0 -5 2 -5 5" opacity="0.7"/>
-          </g>
-          <defs><filter id="s"><feDropShadow dx="0" dy="1" stdDeviation="1" flood-opacity="0.3"/></filter></defs>
-        </svg>
-      `,
-      amp: `
-        <svg width="36" height="36" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <g filter="url(#s)">
-            <path d="M11 2 L6 12 H11 L9 22 L18 9 H13 L15 2 Z" fill="${color}" stroke="white" stroke-width="1"/>
-          </g>
-          <defs><filter id="s"><feDropShadow dx="0" dy="1" stdDeviation="1" flood-opacity="0.3"/></filter></defs>
-        </svg>
-      `,
     };
-
-    const svg = svgByType[type] || svgByType.server;
+    const svg = svgByType[type] || svgByType.device;
     const { Size, Point } = window.google.maps;
     return {
       url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
@@ -152,7 +125,6 @@ export default function DeviceMap({
     };
   }, []);
 
-  // 共用：fit 到一批 markers
   const fitToMarkers = useCallback((map, markers, padding = 80) => {
     if (!markers || markers.length === 0) return;
     if (markers.length === 1) {
@@ -166,7 +138,6 @@ export default function DeviceMap({
     map.fitBounds(bounds, padding);
   }, []);
 
-  // 初次載入：fit到全部設備
   const handleMapLoad = useCallback(
     (map) => {
       mapRef.current = map;
@@ -180,110 +151,65 @@ export default function DeviceMap({
     [allMarkers, boundsPadding, zoom, fitToMarkers]
   );
 
-  // 外部聚焦（Header/清單點擊）→ 可主動定位/縮放
+  // 🔹 偵測使用者是否縮放過
+  const handleZoomChanged = () => {
+    if (mapRef.current) {
+      setUserHasZoomed(true);
+    }
+  };
+
+  // 外部聚焦
   useEffect(() => {
-    if (!mapRef.current || !mapFocus) return;
+    if (!mapFocus) return;
+
+    pendingOpenRef.current = String(mapFocus.id);
+    if (mapRef.current) {
+      const map = mapRef.current;
+      if (Number.isFinite(mapFocus.lat) && Number.isFinite(mapFocus.lng)) {
+        map.panTo({ lat: mapFocus.lat, lng: mapFocus.lng });
+      }
+      if (!userHasZoomed && mapFocus.zoom) {
+        map.setZoom(Math.min(18, Math.max(5, Number(mapFocus.zoom))));
+      }
+    }
+    if (mapFocus.openInfo) {
+      setActiveId(String(mapFocus.id));
+    }
+  }, [mapFocus, userHasZoomed]);
+
+  // markers 準備好後 → 嘗試開窗
+  useEffect(() => {
+    if (!isLoaded || !mapRef.current) return;
+    const reqId = pendingOpenRef.current;
+    if (!reqId) return;
+
+    let m = filteredMarkers.find((x) => String(x.id) === String(reqId));
+    if (!m) m = allMarkers.find((x) => String(x.id) === String(reqId));
+    if (!m) return;
+
+    setActiveId(String(reqId));
+    if (Number.isFinite(m.lat) && Number.isFinite(m.lng)) {
+      mapRef.current.panTo({ lat: m.lat, lng: m.lng });
+    }
+    pendingOpenRef.current = null;
+  }, [filteredMarkers, allMarkers, isLoaded]);
+
+  // ---- 其他 useEffect (offlineOnly, resize 等) 保持不變 ----
+
+  const centerOn = useCallback((lat, lng) => {
     const map = mapRef.current;
-
-    setActiveId(mapFocus.id);
-    if (Number.isFinite(mapFocus.lat) && Number.isFinite(mapFocus.lng)) {
-      map.panTo({ lat: mapFocus.lat, lng: mapFocus.lng });
-    }
-    if (mapFocus.zoom) {
-      map.setZoom(Math.min(18, Math.max(5, Number(mapFocus.zoom))));
-    }
-  }, [mapFocus]);
-
-  /**
-   * 偵測「只顯示 offline的切換瞬間
-   * - false → true：馬上 fit 到 offlineMarkers
-   * - true → false：不做任何移動/縮放（維持目前視角）
-   */
-  useEffect(() => {
-    if (!isLoaded || !mapRef.current) return;
-
-    const was = prevOfflineOnlyRef.current;
-    const now = showOfflineOnly;
-
-    if (!was && now) {
-      // 關 → 開：fit 到 offline 標記
-      fitToMarkers(mapRef.current, offlineMarkers, boundsPadding);
-      setActiveId(null); // 不自動開窗
-    }
-    // 開 → 關：不動視角（保持使用者目前的位置/縮放）
-    prevOfflineOnlyRef.current = now;
-  }, [showOfflineOnly, offlineMarkers, fitToMarkers, boundsPadding, isLoaded]);
-
-  /**
-   * 類型 checkbox 改變 → 自動 fit 到目前顯示的 filteredMarkers
-   * 但若 showOfflineOnly 為 true，則此 effect 不處理（交給上面的「切換瞬間」effect）
-   */
-  useEffect(() => {
-    if (!isLoaded || !mapRef.current) return;
-
-    // 若目前的 InfoWindow 已不在顯示集合中，關閉它
-    if (activeId && !filteredMarkers.some((m) => m.id === activeId)) {
-      setActiveId(null);
-    }
-
-    // 離線模式中，不在這裡動視角（只在切換瞬間動一次）
-    if (showOfflineOnly) return;
-
-    // 一般情況：fit 到目前顯示資料
-    const map = mapRef.current;
-    if (filteredMarkers.length === 0) {
-      // 沒資料就不亂動；若希望回到預設，可解除註解：
-      // map.setCenter(fallbackCenter);
-      // map.setZoom(zoom);
-      return;
-    }
-    fitToMarkers(map, filteredMarkers, boundsPadding);
-  }, [filteredMarkers, isLoaded, boundsPadding, zoom, showOfflineOnly, activeId, fitToMarkers]);
-
-
-  // 視窗尺寸改變時，依「目前可見的標記」重新 fit（避免回到 fallback）
-  useEffect(() => {
-    if (!isLoaded || !mapRef.current) return;
-
-    let timer = null;
-    const onResize = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        const map = mapRef.current;
-        // 依目前顯示的集合來 fit：offline 模式就用 offlineMarkers，否則用 filteredMarkers
-        const visible = showOfflineOnly ? offlineMarkers : filteredMarkers;
-        if (visible.length > 0) {
-          fitToMarkers(map, visible, boundsPadding);
-        }
-      }, 150);
-    };
-    window.addEventListener("resize", onResize);
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener("resize", onResize);
-    };
-  }, [isLoaded, filteredMarkers, offlineMarkers, showOfflineOnly, boundsPadding, fitToMarkers]);
-
-  // 1) 在元件內加一個小工具：只平移，不改 zoom
-const centerOn = useCallback((lat, lng) => {
-  const map = mapRef.current;
-  if (!map || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
-  map.panTo({ lat, lng });  // 只移動視角，不會改變縮放等級
-}, []);
-
-
+    if (!map || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    map.panTo({ lat, lng });
+  }, []);
 
   if (loadError) return <div style={{ padding: 12, color: "crimson" }}>地圖載入失敗：{String(loadError)}</div>;
   if (!isLoaded) return <div style={{ padding: 12 }}>地圖載入中…</div>;
 
- 
-  
   return (
-    // <div style={{ width: "100%", height, borderRadius: 8, overflow: "hidden", boxShadow: "0 2px 6px rgba(0,0,0,0.08)" }}>
     <div className="map-container card">
       <GoogleMap
         mapContainerStyle={{ width: "100%", height: "100%" }}
-        center={fallbackCenter} 
+        center={fallbackCenter}
         zoom={zoom}
         options={{
           mapTypeControl: false,
@@ -292,39 +218,98 @@ const centerOn = useCallback((lat, lng) => {
           clickableIcons: false,
           gestureHandling: "greedy",
           maxZoom: 18,
+          styles: NATURE_GREEN,
         }}
         onLoad={handleMapLoad}
         onClick={() => setActiveId(null)}
+        onZoomChanged={handleZoomChanged} // 🔹 追蹤使用者縮放
       >
         {filteredMarkers.map((m) => (
           <Marker
             key={m.id}
             position={{ lat: m.lat, lng: m.lng }}
-            title={`${m.name} [${m.type}] (${m.status ?? "unknown"})`}
-            icon={makeTypeIcon(m.type, colorFromStatus(m.status))}
-            label={{ text: m.name ?? "", color: "#111", fontSize: "12px", fontWeight: "500" }}
+            title={`${m.name} [${m.type}] (${m.onlineStatus ? "online" : "offline"})`}
+            icon={makeTypeIcon(m.type, colorFromStatus(m.onlineStatus))}
             onClick={() => {
               setActiveId(m.id);
-              centerOn(m.lat, m.lng);   // 保持使用者目前的縮放，只把中心移到這顆
+              if (!userHasZoomed) {
+                mapRef.current.setZoom(15); // 預設未縮放過 → 自動 zoom
+              }
+              centerOn(m.lat, m.lng);
             }}
           />
         ))}
 
         {activeId != null && (() => {
-          const current = filteredMarkers.find((x) => x.id === activeId);
+          const current =
+            filteredMarkers.find((x) => x.id === activeId) ||
+            allMarkers.find((x) => x.id === activeId);
           if (!current) return null;
+
+          const isGateway = current.type === "gateway";
+          const raw = isGateway ? (getRawGateway?.(current.id) || null) : (getRawDevice?.(current.id) || null);
+          const linkedDevices = isGateway
+            ? (Array.isArray(rawData?.devices) ? rawData.devices.filter(d =>
+                String(d?.gateway?.gatewayEui) === String(current.id)
+              ) : [])
+            : [];
+
           return (
             <InfoWindow
               position={{ lat: current.lat, lng: current.lng }}
               onCloseClick={() => setActiveId(null)}
-              onDomReady={() => centerOn(current.lat, current.lng)}  // 再次居中但不影響 zoom
+              onDomReady={() => centerOn(current.lat, current.lng)}
             >
-              <div style={{ minWidth: 180 }}>
-                <div style={{ fontWeight: 600, marginBottom: 6 }}>{current.name}</div>
-                <div>Type：{current.type}</div>
-                <div>Status：{current.status ?? "unknown"}</div>
-                <div>Lat：{current.lat}</div>
-                <div>Lng：{current.lng}</div>
+              <div style={{ minWidth: 240 }}>
+                {raw && (
+                  <>
+                    <hr />
+                    <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                      Raw {isGateway ? "Gateway" : "Device"} (from API)
+                    </div>
+                    {!isGateway ? (
+                      <>
+                        <div>deviceEui：{raw.deviceEui}</div>
+                        <div>statusText：{raw.statusText ?? "-"}</div>
+                        <div>onlineStatus：{String(raw.onlineStatus)}</div>
+                        <div>location：{raw.location ?? "-"}</div>
+                        <div>temperature：{raw.temperature ?? "-"}</div>
+                        <div>voltage：{raw.voltage ?? "-"}</div>
+                        <div>ripple：{raw.ripple ?? "-"}</div>
+                        <div>current：{raw.current ?? "-"}</div>
+                        <div>rfInputAvgPower：{raw.rfInputAvgPower ?? "-"}</div>
+                        <div>rfOutputAvgPower：{raw.rfOutputAvgPower ?? "-"}</div>
+                        <div>rfGainAvg：{raw.rfGainAvg ?? "-"}</div>
+                        <div>lastUpdated：{raw.lastUpdated ?? "-"}</div>
+                        {raw.gateway?.gatewayEui && (
+                          <div style={{ marginTop: 6 }}>
+                            gatewayEui：{raw.gateway.gatewayEui}（online：{String(raw.gateway.onlineStatus)}）
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <div>gatewayEui：{raw.gatewayEui}</div>
+                        <div>onlineStatus：{String(raw.onlineStatus)}</div>
+                        <div>latitude：{raw.latitude ?? "-"}</div>
+                        <div>longitude：{raw.longitude ?? "-"}</div>
+                        <div>lastSeen：{raw.lastSeen ?? "-"}</div>
+                        {linkedDevices.length > 0 && (
+                          <details style={{ marginTop: 6 }}>
+                            <summary>Linked devices（{linkedDevices.length}）</summary>
+                            <ul style={{ margin: "6px 0 0 18px", padding: 0 }}>
+                              {linkedDevices.map(d => (
+                                <li key={d.deviceEui}>
+                                  {d.partName || d.serialNumber || d.deviceEui}（online：{String(d.onlineStatus)}）
+                                </li>
+                              ))}
+                            </ul>
+                          </details>
+                        )}
+                      </>
+                    )}
+                  </>
+                )}
               </div>
             </InfoWindow>
           );

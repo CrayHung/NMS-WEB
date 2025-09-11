@@ -7,6 +7,7 @@ import { GlobalProvider, useGlobalContext } from "./GlobalContext";
 
 function AppRoutes() {
   const { user } = useGlobalContext();
+console.debug('ENV:', import.meta.env.VITE_API_BASE, import.meta.env.VITE_TG_BASE, import.meta.env.VITE_WS_BASE);
 
   return (
     <Routes>
@@ -26,6 +27,9 @@ function AppRoutes() {
 }
 
 export default function App() {
+  
+  console.debug('ENV:', import.meta.env.VITE_API_BASE, import.meta.env.VITE_TG_BASE, import.meta.env.VITE_WS_BASE);
+
   return (
     <GlobalProvider>
       <Router>

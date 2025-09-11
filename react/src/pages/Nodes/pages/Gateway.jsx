@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState, useEffect } from "react";
 import { useGlobalContext } from "../../../GlobalContext";
-
+import { apiUrl,apiFetch } from "../../../lib/api";
 /* 固定樣式（避免每次 render 產生新物件） */
 const inputStyle = {
   width: "100%",
@@ -10,6 +10,7 @@ const inputStyle = {
   fontSize: 14,
 };
 const errorText = { color: "#c0392b", fontSize: 12, marginTop: 4 };
+
 
 /* 驗證工具 */
 const toNum = (v) => Number(String(v).trim());
@@ -22,25 +23,36 @@ const isValidLng = (v) => {
   return Number.isFinite(n) && n >= -180 && n <= 180;
 };
 
+/* 取下一個 edge id（數字字串） */
+const nextEdgeId = (links) => {
+  const max = (links || []).reduce((m, e) => {
+    const n = Number(e.id);
+    return Number.isFinite(n) ? Math.max(m, n) : m;
+  }, 0);
+  return String(max + 1);
+};
+
 export default function Gateway() {
   const { user, deviceData, setDeviceData, deviceLink, setDeviceLink } = useGlobalContext();
 
-  /* 目前是「新增」或「編輯」模式 */
+  /* 目前是「新增」或「編輯」模式（值為 deviceId/gatewayEui 或 null） */
   const [editingId, setEditingId] = useState(null);
 
   /* 表單 */
   const [form, setForm] = useState({
+    gatewayEui: "",        //  API 主鍵，也將成為 deviceId
     deviceName: "",
-    status: "online",
+    onlineStatus: true,      // online / warning / offline（轉成 API 的 onlineStatus 布林）
     type: "gateway",
     longitude: "",
     latitude: "",
     IP: "",
-    source: "",
-    target: ""
+    source: "",            // server 的 deviceId
+    target: "",            // 可選：要插在 target 前方
   });
 
-  /* 即時錯誤訊息（座標） */
+  /* 載入/錯誤 */
+  const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({ latitude: "", longitude: "" });
 
   /* 取出所有 gateway 清單（列表用） */
@@ -49,7 +61,7 @@ export default function Gateway() {
     [deviceData]
   );
 
-  // 取出所有 server 清單（提供 source 下拉選單用）
+  // 取出所有 server 清單（提供 source 下拉用）
   const servers = useMemo(
     () => (Array.isArray(deviceData) ? deviceData.filter((d) => d.type === "server") : []),
     [deviceData]
@@ -67,7 +79,7 @@ export default function Gateway() {
             ? ""
             : isValidLat(val)
               ? ""
-              : "latitude must between -90 ~ 90 ",
+              : "latitude must be between -90 ~ 90",
       }));
     }
     if (key === "longitude") {
@@ -78,7 +90,7 @@ export default function Gateway() {
             ? ""
             : isValidLng(val)
               ? ""
-              : "longitude  must between -180 ~ 180",
+              : "longitude must be between -180 ~ 180",
       }));
     }
   }, []);
@@ -86,227 +98,256 @@ export default function Gateway() {
   /* 必填 + 座標驗證通過才可存 */
   const isFormValid = useMemo(() => {
     const filled =
+      form.gatewayEui.trim() !== "" &&   //  必填：API 主鍵
       form.deviceName.trim() !== "" &&
       form.IP.trim() !== "" &&
       form.longitude.trim() !== "" &&
-      form.latitude.trim() !== "" &&
-      form.source.trim() !== "";  //來源不可空
+      form.latitude.trim() !== "";
+
     return filled && isValidLng(form.longitude) && isValidLat(form.latitude);
-  }, [form.deviceName, form.IP, form.longitude, form.latitude, form.source]);
+  }, [form.gatewayEui, form.deviceName, form.IP, form.longitude, form.latitude]);
 
   const resetForm = useCallback(() => {
     setEditingId(null);
     setForm({
+      gatewayEui: "",
       deviceName: "",
-      status: "online",
+      onlineStatus: true,
       type: "gateway",
       longitude: "",
       latitude: "",
       IP: "",
       source: "",
-      target: ""
+      target: "",
     });
     setErrors({ latitude: "", longitude: "" });
   }, []);
 
-  /* 編輯：把該筆資料帶入表單 */
-  const handleEdit = useCallback((srv) => {
-    alert('edit below')
-    setEditingId(srv.deviceId ?? srv.id ?? null);
+  /* 把該筆資料帶入表單 */
+  const handleEdit = useCallback((gw) => {
+    setEditingId(gw.deviceId ?? gw.id ?? null);
     setForm({
-      deviceName: srv.deviceName ?? "",
-      status: srv.status ?? "online",
+      gatewayEui: String(gw.deviceId ?? ""),
+      deviceName: gw.deviceName ?? "",
+      onlineStatus: gw.onlineStatus ?? true,
       type: "gateway",
-      longitude: String(srv.longitude ?? ""),
-      latitude: String(srv.latitude ?? ""),
-      IP: String(srv.IP ?? ""),
-      source: srv.source ?? "",
-      target: srv.target ?? "",
+      longitude: String(gw.longitude ?? ""),
+      latitude: String(gw.latitude ?? ""),
+      IP: String(gw.IP ?? ""),
+      source: gw.source ?? "", 
+      target: gw.target ?? "",
     });
     setErrors({ latitude: "", longitude: "" });
   }, []);
 
-  /* 刪除：從全域資料移除 */
+
+
+
   const handleDelete = useCallback(
-    (id) => {
+    async (id) => {
       if (!id) return;
-      if (!window.confirm("delete this Gateway ?")) return;
-      setDeviceData((prev) => prev.filter((d) => (d.deviceId ?? d.id) !== id));
-      if (editingId === id) resetForm(); // 若正在編輯該筆，一併清空表單
+      if (!window.confirm("delete this Gateway ?" + id)) return;
+      if (saving) return;
+
+      try {
+        setSaving(true);
+        const res = await apiFetch(`/gateways/${encodeURIComponent(id)}`, {
+          method: 'DELETE',
+        });
+        
+        // const res = await fetch(`http://61.216.140.11:9002/api/gateways/${encodeURIComponent(id)}`, { method: "DELETE" });
+        // const res = await fetch(`${API_BASE}/${encodeURIComponent(id)}`, { method: "DELETE" });
+
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          throw new Error(`API DELETE failed (${res.status}): ${text || res.statusText}`);
+        }
+
+        // API 成功 → 同步更新本地資料+線
+        setDeviceData((prev) => prev.filter((d) => (d.deviceId ?? d.id) !== id));
+        setDeviceLink((prev) => prev.filter((e) => e.source !== id && e.target !== id));
+        if (editingId === id) resetForm();
+
+        alert("Gateway deleted (API + local)");
+      } catch (err) {
+        console.error(err);
+        alert(`Delete gateway failed: ${err.message}`);
+      } finally {
+        setSaving(false);
+      }
     },
-    [editingId, resetForm, setDeviceData]
+    [editingId, resetForm, saving, setDeviceData, setDeviceLink]
   );
 
-  /* 儲存（新增或更新） */
-  const handleSave = useCallback(() => {
-    alert('handleSave called');
-    if (!isFormValid) return;
+  /* 儲存（新增或更新 + 呼叫後端） */
+  const handleSave = useCallback(async () => {
+    if (!isFormValid || saving) return;
 
     const nowISO = new Date().toISOString();
+    const gatewayEui = form.gatewayEui.trim(); 
+    const latNum = toNum(form.latitude);
+    const lngNum = toNum(form.longitude);
 
-    // 1) 新節點 ID：新增時一次生成，兩邊共用；編輯時沿用 editingId
-    const newId = editingId ?? `gw_${Date.now()}`;
-
-
-    const payload = {
-      deviceId: newId, // 新增時產一個 id；也可改為後端給
-      deviceName: form.deviceName.trim(),
-      status: form.status ?? "online",
-      type: "gateway",
-      longitude: String(form.longitude).trim(),
-      latitude: String(form.latitude).trim(),
-      temperature: "",
-      humidity: "",
-      batteryLevel: "",
-      lastUpdated: nowISO,
-      alerts: [],
-      IP: String(form.IP).trim(),
-      createdBy: user.username,
-      createdAt: nowISO,
-      position: { x: 0, y: 0 },
+    // 組 API body
+    const apiBody = {
+      gatewayEui: gatewayEui,
+      name: form.deviceName.trim(),
+      location: `Lat:${latNum},Lon:${lngNum}`, // 後端有 location 可接受字串
+      latitude: latNum,
+      longitude: lngNum,
+      altitude: 0,
+      onlineStatus: form.onlineStatus === true,  // 只以 online / 非 online 分流
+      lastSeen: nowISO,
     };
 
 
-    setDeviceData((prev) => {
-      let next;
-      if (editingId) {
-        // 更新
-        return prev.map((d) =>
-          (d.deviceId ?? d.id) === editingId ? { ...d, ...payload } : d
-        );
-      } else {
-        next = [...prev, payload];
+    try {
+      setSaving(true);
+      // call API
+      const url = editingId
+  ? apiUrl(`/gateways/${encodeURIComponent(gatewayEui)}`)
+  : apiUrl('/gateways');
+      // const url = editingId ? `http://61.216.140.11:9002/api/gateways/${encodeURIComponent(gatewayEui)}` : "http://61.216.140.11:9002/api/gateways";
+      // const url = editingId ? `http://61.216.140.11:9002/api/gateways/${encodeURIComponent(gatewayEui)}` : "http://61.216.140.11:9002/api/gateways";
+      const method = editingId ? "PUT" : "POST";
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(apiBody),
+      });
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`API ${method} failed (${res.status}): ${text || res.statusText}`);
       }
-      return next;
-    });
 
+      // API 成功後 → 寫入全域 node
+      const nodePayload = {
+        deviceId: gatewayEui,                   // ★ 使用 gatewayEui 當成 node id
+        deviceName: form.deviceName.trim(),
+        onlineStatus: form.onlineStatus ?? true,
+        type: "gateway",
+        longitude: String(form.longitude).trim(),
+        latitude: String(form.latitude).trim(),
+        temperature: "",
+        humidity: "",
+        batteryLevel: "",
+        lastUpdated: nowISO,
+        alerts: [],
+        IP: String(form.IP).trim(),
+        createdBy: user.username,
+        createdAt: nowISO,
+        position: { x: 0, y: 0 },
+        source: form.source,                   // 是否要存進 node 視你的模型而定
+        target: form.target,
+      };
 
-
-    const linkpayload = {
-      deviceId: editingId ?? `srv_${Date.now()}`, // 新增時產一個 id；也可改為後端給
-      source: form.source, target: form.target, type: 'smoothstep', animated: true
-    };
-
-
-
-
-
-
-
-    // 2) 再處理 deviceLink（依你規則建立一筆新 link）
-    setDeviceLink((prev) => {
-      // 從現有的 link 中找出最大的「數字」id，再 +1
-      const maxId =
-        prev.length === 0
-          ? 0
-          : Math.max(
-            ...prev.map((e) => {
-              const n = Number(e.id);
-              return Number.isFinite(n) ? n : 0; // 若之前不是數字字串，就當 0
-            })
+      setDeviceData((prev) => {
+        if (editingId) {
+          return prev.map((d) =>
+            (d.deviceId ?? d.id) === editingId ? { ...d, ...nodePayload } : d
           );
-
-      const nextId = String(maxId + 1);
-
-
-      // ★ 關鍵：沒填 target 就用「本次節點」當 target
-      const targetActual = (form.target ?? "").trim() || (editingId ?? newId);
-
-
-      // 編輯：更新「以這個節點為 target」的那條邊；找不到就新增
-      if (editingId) {
-        let found = false;
-        const updated = prev.map((e) => {
-          if (e.target === editingId) {
-            found = true;
-            return {
-              ...e,
-              source: form.source,     // 來源改成使用者選的 server
-              target: targetActual,    // 通常是 editingId 自己
-              type: "smoothstep",
-              animated: true,
-            };
-          }
-          return e;
-        });
-        if (!found) {
-          updated.push({
-            id: nextId,
-            source: form.source,
-            target: targetActual,
-            type: "smoothstep",
-            animated: true,
-          });
         }
-        return updated;
-      }
+        // 新增：若已存在同 id，做覆蓋；否則 append
+        const exists = prev.some((d) => (d.deviceId ?? d.id) === gatewayEui);
+        return exists
+          ? prev.map((d) => ((d.deviceId ?? d.id) === gatewayEui ? { ...d, ...nodePayload } : d))
+          : [...prev, nodePayload];
+      });
 
-      // 新增：直接加一條 server → 新節點 的邊（或 → 指定的 target）
-      return [
-        ...prev,
-        {
-          id: nextId,
-          source: form.source,     // 來源一定是 server（你已改成下拉）
-          target: targetActual,    // 沒填就接到新節點 newId
-          type: "smoothstep",
-          animated: true,
-        },
-      ];
-    });
+      // ===== edges：建立或「拆邊插入」 =====
+      setDeviceLink((prev) => {
+        const src = form.source.trim();               // server id（必填）
+        const tgt = (form.target || "").trim();       // 可能是「原 gateway」
 
-    alert(editingId ? "Gateway Update" : "Gateway Add");
+        // 沒指定 target：只接一條 server→新 gateway
+        if (!tgt) {
+          const id1 = nextEdgeId(prev);
+          return [
+            ...prev,
+            { id: id1, source: src, target: gatewayEui, type: "smoothstep", animated: true },
+          ];
+        }
 
+        // 有指定 target：要把 server→target 拆成 server→新、 新→target
+        const idx = prev.findIndex((e) => e.source === src && e.target === tgt);
 
-    resetForm();
-  }, [editingId, form, isFormValid, resetForm, setDeviceData, user.username]);
+        const base = Number(nextEdgeId(prev)); // 下一個數字
+        const idA = String(base);
+        const idB = String(base + 1);
 
+        const edgeA = { id: idA, source: src, target: gatewayEui, type: "smoothstep", animated: true };
+        const edgeB = { id: idB, source: gatewayEui, target: tgt, type: "smoothstep", animated: true };
 
-  // 1) deviceData 變動就印
+        if (idx >= 0) {
+          const copy = [...prev];
+          copy.splice(idx, 1);          // 刪掉原 server→tgt
+          copy.push(edgeA, edgeB);      // 插入新兩條
+          return copy;
+        }
+        // 找不到原邊也沒關係，直接新增兩條
+        return [...prev, edgeA, edgeB];
+      });
+
+      alert(editingId ? "Gateway updated " : "Gateway added ");
+      resetForm();
+    } catch (err) {
+      console.error(err);
+      alert(`Save gateway failed: ${err.message}`);
+    } finally {
+      setSaving(false);
+    }
+  }, [editingId, form, isFormValid, saving, resetForm, setDeviceData, setDeviceLink, user.username]);
+
+  // Debug：觀察全域變更
   useEffect(() => {
-    console.log('deviceData changed:', deviceData);
-    console.log('deviceLink changed:', deviceLink);
+    console.log("deviceData changed:", deviceData);
+    console.log("deviceLink changed:", deviceLink);
   }, [deviceData, deviceLink]);
-
 
   return (
     <div style={{ display: "grid", gap: 16 }}>
       <h3 style={{ marginTop: 0 }}>Gateway Management</h3>
 
-      {/* 伺服器列表（卡片 + 表格） */}
+      {/* 列表 */}
       <div className="card" style={{ overflowX: "auto" }}>
-        <h4 style={{ marginTop: 0 }}>Gateway</h4>
+        <h4 style={{ marginTop: 0 }}>Gateways</h4>
         {gateways.length === 0 ? (
           <div style={{ color: "#666" }}>No Gateway</div>
         ) : (
           <table>
             <thead>
               <tr>
+                <th>gatewayEui (id)</th>
                 <th>device name</th>
                 <th>IP</th>
                 <th>longitude</th>
                 <th>latitude</th>
-                <th>status</th>
-                <th>createdBy</th>
-                <th>source</th>
-                <th>target</th>
+                <th>onlineStatus</th>
+
                 <th>operation</th>
               </tr>
             </thead>
             <tbody>
-              {gateways.map((s) => {
-                const id = s.deviceId ?? s.id;
+              {gateways.map((g) => {
+                const id = g.deviceId ?? g.id;
                 return (
                   <tr key={id}>
-                    <td>{s.deviceName}</td>
-                    <td>{s.IP ?? "-"}</td>
-                    <td>{s.longitude}</td>
-                    <td>{s.latitude}</td>
-                    <td>{s.status ?? "online"}</td>
-                    <td>{s.createdBy ?? "-"}</td>
-                    <td>{s.source}</td>
-                    <td>{s.target ?? "-"}</td>
+                    <td>{id}</td>
+                    <td>{g.deviceName}</td>
+                    <td>{g.IP ?? "-"}</td>
+                    <td>{g.longitude}</td>
+                    <td>{g.latitude}</td>
+                    <td>
+                      {g.onlineStatus ? (
+                        <span style={{ color: '#16a34a', fontWeight: 600 }}>online</span>
+                      ) : (
+                        <span style={{ color: '#ef4444', fontWeight: 600 }}>offline</span>
+                      )}
+                    </td>
+           
                     <td style={{ whiteSpace: "nowrap" }}>
-                      <button onClick={() => handleEdit(s)} style={{ marginRight: 8 }}>
+                      <button onClick={() => handleEdit(g)} style={{ marginRight: 8 }}>
                         edit
                       </button>
                       <button
@@ -324,9 +365,17 @@ export default function Gateway() {
         )}
       </div>
 
-      {/* 新增 / 編輯 表單（上下欄位、沿用你的樣式） */}
+      {/* 表單 */}
       <div className="card" style={{ display: "grid", gap: 16 }}>
         <h4 style={{ margin: 0 }}>{editingId ? "edit Gateway" : "add Gateway"}</h4>
+
+        {/* gatewayEui */}
+        <Field
+          label="gatewayEui (unique id)"
+          value={form.gatewayEui}
+          onChange={handleChange("gatewayEui")}
+          disabled={!!editingId}  
+        />
 
         <Field
           label="device name"
@@ -350,7 +399,7 @@ export default function Gateway() {
           <input
             value={form.longitude}
             onChange={(e) => handleChange("longitude")(e.target.value)}
-            placeholder="121.564 ( -180 ~ 180 )"
+            placeholder="-180 ~ 180 "
             inputMode="decimal"
             style={{
               ...inputStyle,
@@ -366,7 +415,7 @@ export default function Gateway() {
           <input
             value={form.latitude}
             onChange={(e) => handleChange("latitude")(e.target.value)}
-            placeholder="25.034 ( -90 ~ 90 )"
+            placeholder="-90 ~ 90 "
             inputMode="decimal"
             style={{
               ...inputStyle,
@@ -375,8 +424,9 @@ export default function Gateway() {
           />
           {errors.latitude && <div style={errorText}>{errors.latitude}</div>}
         </div>
+
         {/* Source 下拉：必定是 server */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {/* <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <label>source server</label>
           <select
             value={form.source}
@@ -390,14 +440,29 @@ export default function Gateway() {
               </option>
             ))}
           </select>
-        </div>
+        </div> */}
 
-        <Field
-          label="target"
+        {/* target 可選：若填，會做「插入中間」的拆邊 */}
+        {/* <Field
+          label="target (optional: insert before this gateway)"
           value={form.target}
           onChange={handleChange("target")}
-          placeholder="empty is ok"
-        />
+          placeholder="填入既有 gateway 的 id，會插在它前面"
+        /> */}
+
+        {/* 狀態（簡單版） */}
+        {/* <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <label>status</label>
+          <select
+            value={form.status}
+            onChange={(e) => handleChange("status")(e.target.value)}
+            style={inputStyle}
+          >
+            <option value="online">online</option>
+            <option value="warning">warning</option>
+            <option value="offline">offline</option>
+          </select>
+        </div> */}
 
         <Field label="user name" value={user.username} disabled />
 
@@ -408,13 +473,18 @@ export default function Gateway() {
               onClick={resetForm}
               style={{ background: "#7f8c8d" }}
               title="cancel"
+              disabled={saving}
             >
               cancel
             </button>
           )}
           {isFormValid && (
-            <button onClick={handleSave}>
-              {editingId ? "update Gateway" : "save Gateway"}
+            <button onClick={handleSave} disabled={saving}>
+              {saving
+                ? "saving..."
+                : editingId
+                  ? "update Gateway (API)"
+                  : "save Gateway (API)"}
             </button>
           )}
         </div>
@@ -431,10 +501,7 @@ const Field = React.memo(function Field({
   placeholder,
   disabled = false,
 }) {
-  const handleInput = useCallback(
-    (e) => onChange?.(e.target.value),
-    [onChange]
-  );
+  const handleInput = useCallback((e) => onChange?.(e.target.value), [onChange]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>

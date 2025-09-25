@@ -7,6 +7,8 @@ import DeviceKpiDashboard from '../../Network/pages/DeviceKpiDashboard';
 import RFpower from './Rfpower';
 import {apiUrl,apiFetch} from '../../../lib/api'
 
+import { normalizeDevice, normalizeDevices } from "../../../utils/normalizeDevice";
+
 // === 工具：解析 "Lat:24.8075,Lon:121.0445,Site 01" ===
 // 解析 "Lat:24.8080,Lon:121.0412"
 function parseLocationString(loc) {
@@ -32,7 +34,7 @@ function DeviceDetailModal({ deviceEui, onClose }) {
     { key: 'telemetry', label: 'Telemetry' },
     { key: 'alarms', label: 'Alarms' },
     { key: 'spectrum', label: 'Spectrum' },
-    { key: 'diagnostics', label: 'Diagnostics' },
+    // { key: 'diagnostics', label: 'Diagnostics' },
     { key: 'dashboard', label: 'Dashboard' },
     { key: 'config', label: 'Configuration' },
   ];
@@ -41,6 +43,13 @@ function DeviceDetailModal({ deviceEui, onClose }) {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(null);
   const [data, setData] = useState(null);
+
+// 將資料統一
+//1. 數值只到小數點後兩位
+//2. 時間格式統一
+
+
+
 
   useEffect(() => {
     if (!deviceEui) return;
@@ -56,7 +65,7 @@ function DeviceDetailModal({ deviceEui, onClose }) {
         const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         const json = await res.json();
-        if (!cancelled) setData(json);
+        if (!cancelled) setData(normalizeDevice(json));
       } catch (e) {
         if (!cancelled) setErr(e);
       } finally {
@@ -98,9 +107,10 @@ function DeviceDetailModal({ deviceEui, onClose }) {
           <Row k="Online" v={String(data.onlineStatus)} />
           <Row
             k="Last Seen"
-            v={data.lastSeen ? new Date(data.lastSeen).toISOString("en-US") : '-'}
+            v={data.lastSeen ? new Date(data.lastSeen).toLocaleString("en-US") : '-'}
+            // v={data.lastSeen ? new Date(data.lastSeen).toLocaleString("en-US") : '-'}
           />
-          {data.gateway && (
+          {/* {data.gateway && (
             <>
               <div style={{ fontWeight: 700, margin: '16px 0 8px' }}>Gateway</div>
               <Row k="gatewayEui" v={data.gateway.gatewayEui} />
@@ -110,7 +120,7 @@ function DeviceDetailModal({ deviceEui, onClose }) {
 
               <Row k="Last Seen" v={data.gateway.lastSeen ? new Date(data.gateway.lastSeen).toISOString("en-US") : '-'} />
             </>
-          )}
+          )} */}
         </div>
       );
     }
@@ -120,15 +130,18 @@ function DeviceDetailModal({ deviceEui, onClose }) {
         <div>
           <Row k="Temperature(°C)" v={data.temperature} />
           <Row k="Voltage(V)" v={data.voltage} />
-          <Row k="Current(mA)" v={data.current} />
+          {/* <Row k="Current(mA)" v={data.current} /> */}
           <Row k="Ripple(mV)" v={data.ripple} />
-          <Row k="RF In Power(dB)" v={data.rfInputPower} />
-          <Row k="RF Out Power(dB)" v={data.rfOutputPower} />
+          <Row k="RF In Power(dBmV)" v={data.rfInputPower} />
+          <Row k="RF Out Power(dBmV)" v={data.rfOutputPower} />
           <Row k="rfInputAvgPower" v={data.rfInputAvgPower} />
           <Row k="rfOutputAvgPower" v={data.rfOutputAvgPower} />
-          <Row k="rfGainAvg" v={data.rfGainAvg} />
-          <Row k="rfPowerLastUpdated" v={data.rfPowerLastUpdated ? new Date(data.rfPowerLastUpdated).toISOString("en-US") : '-'} />
-          <Row k="lastUpdated" v={data.lastUpdated ? new Date(data.lastUpdated).toISOString("en-US") : '-'} />
+          <Row k="rfGainAvg(dB)" v={data.rfGainAvg} />
+          {/* <Row k="rfPowerLastUpdated" v={data.rfPowerLastUpdated ? new Date(data.rfPowerLastUpdated).toISOString("en-US") : '-'} /> */}
+          <Row k="rfPowerLastUpdated" v={data.rfPowerLastUpdated ? new Date(data.rfPowerLastUpdated).toLocaleString("en-US") : '-'} />
+          {/* <Row k="lastUpdated" v={data.lastUpdated ? new Date(data.lastUpdated).toISOString("en-US") : '-'} /> */}
+          <Row k="lastUpdated" v={data.lastUpdated ? new Date(data.lastUpdated).toLocaleString("en-US") : '-'} />
+
         </div>
       );
     }
@@ -136,7 +149,7 @@ function DeviceDetailModal({ deviceEui, onClose }) {
     if (active === 'alarms') {
       return (
         <div>
-          <Row k="Alarm Status" v={data.tempAlarmStatus} />
+          {/* <Row k="Alarm Status" v={data.tempAlarmStatus} /> */}
           <Row k="Temp High Alarm" v={data.tempHighAlarm} />
           <Row k="Temp Low Alarm" v={data.tempLowAlarm} />
           <Row k="Volt High Alarm" v={data.voltHighAlarm} />
@@ -149,18 +162,22 @@ function DeviceDetailModal({ deviceEui, onClose }) {
 
     if (active === 'spectrum') {
       return (
+        <>
         <div>
-          <Row k="RF In Power" v={data.rfInputPower} />
-          <Row k="RF Out Power" v={data.rfOutputPower} />
-          <Row k="Gain Avg" v={data.rfGainAvg} />
-          <Row k="Last Updated" v={data.rfPowerLastUpdated ? new Date(data.rfPowerLastUpdated).toISOString("en-US") : '-'} />
+          <Row k="RF In Power (dBmV)" v={data.rfInputPower} />
+          <Row k="RF Out Power (dBmV)" v={data.rfOutputPower} />
+          {/* <Row k="Gain Avg" v={data.rfGainAvg} /> */}
+          {/* <Row k="Last Updated" v={data.rfPowerLastUpdated ? new Date(data.rfPowerLastUpdated).toISOString("en-US") : '-'} /> */}
+          <Row k="Last Updated" v={data.rfPowerLastUpdated ? new Date(data.rfPowerLastUpdated).toLocaleString("en-US") : '-'} />
         </div>
+        <RFpower deviceeui={data.deviceEui}/>
+        </>
       );
     }
 
-    if (active === 'diagnostics') {
-      return <RFpower />;
-    }
+    // if (active === 'diagnostics') {
+    //   return <RFpower />;
+    // }
 
     if (active === 'dashboard') {
       return <DeviceKpiDashboard device={data} historySize={60} />;
@@ -169,7 +186,9 @@ function DeviceDetailModal({ deviceEui, onClose }) {
     if (active === 'config') {
       return (
         <div>
-          <Row k="Last Config Updated" v={data.lastConfigUpdated ? new Date(data.lastConfigUpdated).toISOString("en-US") : '-'} />
+          {/* <Row k="Last Config Updated" v={data.lastConfigUpdated ? new Date(data.lastConfigUpdated).toISOString("en-US") : '-'} /> */}
+          <Row k="Last Config Updated" v={data.lastConfigUpdated ? new Date(data.lastConfigUpdated).toLocaleString("en-US") : '-'} />
+          
           <Row k="Site Name" v={data.siteName} />
           <Row k="Site Id" v={data.siteId} />
           <Row k="Cabinet Id" v={data.cabinetId} />
@@ -187,10 +206,11 @@ function DeviceDetailModal({ deviceEui, onClose }) {
     <div
       role="dialog"
       aria-modal="true"
-      style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
-        display: 'grid', placeItems: 'center', zIndex: 50,
-      }}
+      className="modal-overlay"
+      // style={{
+      //   position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
+      //   display: 'grid', placeItems: 'center', zIndex: 50,
+      // }}
       onClick={onClose}
     >
       <div
@@ -352,7 +372,7 @@ export default function List() {
                     <td><OnlineBadge flag={g.onlineStatus} /></td>
                     <td>{g.latitude ?? ''}</td>
                     <td>{g.longitude ?? ''}</td>
-                    <td>{g.lastSeen ? new Date(g.lastSeen).toLocaleString() : '-'}</td>
+                    <td>{g.lastSeen ? new Date(g.lastSeen).toLocaleString("en-US") : '-'}</td>
                     <td>{cnt}</td>
                   </tr>
                 );
@@ -411,7 +431,7 @@ export default function List() {
                         <td><OnlineBadge flag={!!d.onlineStatus} /></td>
                         <td>{lon ?? ''}</td>
                         <td>{lat ?? ''}</td>
-                        <td>{d.lastUpdated ? new Date(d.lastUpdated).toLocaleString() : '-'}</td>
+                        <td>{d.lastUpdated ? new Date(d.lastUpdated).toLocaleString("en-US") : '-'}</td>
                       </tr>
                     );
                   })}

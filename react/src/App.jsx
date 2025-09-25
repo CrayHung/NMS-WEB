@@ -7,7 +7,12 @@ import { GlobalProvider, useGlobalContext } from "./GlobalContext";
 
 function AppRoutes() {
   const { user } = useGlobalContext();
-console.debug('ENV:', import.meta.env.VITE_API_BASE, import.meta.env.VITE_TG_BASE, import.meta.env.VITE_WS_BASE);
+  console.debug(
+    "ENV:",
+    import.meta.env.VITE_API_BASE,
+    import.meta.env.VITE_TG_BASE,
+    import.meta.env.VITE_WS_BASE
+  );
 
   return (
     <Routes>
@@ -20,15 +25,19 @@ console.debug('ENV:', import.meta.env.VITE_API_BASE, import.meta.env.VITE_TG_BAS
         element={user.isLoggedIn ? <ProtectedLayout /> : <Navigate to="/" replace />}
       />
 
-      {/* 未知路徑都nav到login葉面 */}
+      {/* 未知路徑都 nav 到 login 頁面 */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
 
 export default function App() {
-  
-  console.debug('ENV:', import.meta.env.VITE_API_BASE, import.meta.env.VITE_TG_BASE, import.meta.env.VITE_WS_BASE);
+  console.debug(
+    "ENV:",
+    import.meta.env.VITE_API_BASE,
+    import.meta.env.VITE_TG_BASE,
+    import.meta.env.VITE_WS_BASE
+  );
 
   return (
     <GlobalProvider>

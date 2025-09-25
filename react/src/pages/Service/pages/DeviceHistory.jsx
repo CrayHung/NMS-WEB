@@ -280,7 +280,7 @@ const DeviceHistory = () => {
                 </Form.Select>
               </Form.Group>
             </Col>
-            <Col md={2} className="d-flex align-items-end">
+            {/* <Col md={2} className="d-flex align-items-end">
               <Button
                 variant="primary"
                 onClick={handleRefresh}
@@ -288,7 +288,7 @@ const DeviceHistory = () => {
               >
                 Reload
               </Button>
-            </Col>
+            </Col> */}
           </Row>
         </Card.Body>
       </Card>

@@ -1,78 +1,69 @@
 import React, { useState } from "react";
 import { useGlobalContext } from "../../GlobalContext";
-import DeviceMap from "../../components/map/DeviceMap";
-import { FaServer, FaWifi, FaBroadcastTower, FaBolt, FaPowerOff } from "react-icons/fa";
-
+import DeviceMap from "./DeviceMap";
+import { FaWifi, FaBroadcastTower, FaPowerOff } from "react-icons/fa";
 
 export default function Map() {
   const { deviceData } = useGlobalContext();
+  const [searchText,setSearchText]=useState("");
 
-  // checkbox預設全開
+  // checkbox 預設全開
   const [typeFilters, setTypeFilters] = useState({
-    // server: true,
     gateway: true,
-    // transponder: true,
-    // amp: true,
-    device: true  //transponder和amp整合為device
+    device: true, // transponder+amp 合併為 device
   });
 
   // 只顯示 offline
   const [showOfflineOnly, setShowOfflineOnly] = useState(false);
 
-  // 切換類型 任何一個類型有變動 關閉 offlineOnly
+  // 切換類型（關閉 offlineOnly）
   const toggleType = (key) => {
     setTypeFilters((prev) => ({ ...prev, [key]: !prev[key] }));
     setShowOfflineOnly(false);
   };
 
-  // 只顯示offline打開時  四種類型自動取消
+  // 只顯示 offline 打開時，類型自動取消
   const toggleOfflineOnly = () => {
     setShowOfflineOnly((prev) => {
       const next = !prev;
-      if (next) {
-        setTypeFilters({  gateway: false, device: false });
-        // setTypeFilters({ server: false, gateway: false, device: false });
-        // setTypeFilters({ server: false, gateway: false, transponder: false, amp: false });
-      }
+      if (next) setTypeFilters({ gateway: false, device: false });
       return next;
     });
   };
 
-  
   return (
-    <div className="dashboard-grid" style={{ alignItems: "flex-start" }}>
+    <div className="dashboard-grid" style={{ alignItems: "stretch" }}>
+      {/* 左邊地圖（可拉伸至視窗高度） */}
+      <div className="card map-card">
 
-      {/* 左邊地圖 */}
-      <div className="card" style={{ flex: "1 1 auto", minWidth: 0 }}>
         <h3>device map</h3>
-        <p style={{ marginTop: 4 }}>green＝online    red＝offline</p>
-
-        {/* 把勾選狀態傳給地圖 */}
-        {/* <DeviceMap
-          height={480}
-          typeFilters={typeFilters}
-          showOfflineOnly={showOfflineOnly}
-        /> */}
+        <p>green＝online　yellow＝warning　red＝offline</p>
         <DeviceMap
+          /* 不再傳固定 height，讓 CSS 控制高度 */
           typeFilters={typeFilters}
           showOfflineOnly={showOfflineOnly}
+
+          searchText={searchText}
         />
       </div>
 
-      {/* 篩選卡片 */}
-      <div className="card" style={{ width: 300 }}>
+      {/* 右側篩選卡片（固定寬度，內容可滾動） */}
+      <div className="card map-filter-card">
         <h3 style={{ marginBottom: 12 }}>show select type</h3>
 
-        {/* <label style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, cursor: "pointer" }}>
-          <FaServer />
+
+        <div style={{ marginBottom: 8, display: "flex", gap: 8, alignItems: "center" }}>
           <input
-            type="checkbox"
-            checked={typeFilters.server}
-            onChange={() => toggleType("server")}
-            disabled={showOfflineOnly}
+            type="text"
+            placeholder="Search deviceEui / gatewayEui / location"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            style={{ padding: "8px 10px", borderRadius: 6, border: "1px solid #ccc", width: 320 }}
           />
-          <span>server</span>
-        </label> */}
+ 
+
+        </div>
+
 
         <label style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, cursor: "pointer" }}>
           <FaWifi />
@@ -85,28 +76,6 @@ export default function Map() {
           <span>gateway</span>
         </label>
 
-        {/* <label style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, cursor: "pointer" }}>
-          <FaBroadcastTower />
-          <input
-            type="checkbox"
-            checked={typeFilters.transponder}
-            onChange={() => toggleType("transponder")}
-            disabled={showOfflineOnly}
-          />
-          <span>transponder</span>
-        </label>
-
-        <label style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, cursor: "pointer" }}>
-          <FaBolt />
-          <input
-            type="checkbox"
-            checked={typeFilters.amp}
-            onChange={() => toggleType("amp")}
-            disabled={showOfflineOnly}
-          />
-          <span>amp</span>
-        </label> */}
-
         <label style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, cursor: "pointer" }}>
           <FaBroadcastTower />
           <input
@@ -118,18 +87,11 @@ export default function Map() {
           <span>device</span>
         </label>
 
-
         <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
           <FaPowerOff />
-          <input
-            type="checkbox"
-            checked={showOfflineOnly}
-            onChange={toggleOfflineOnly}
-          />
+          <input type="checkbox" checked={showOfflineOnly} onChange={toggleOfflineOnly} />
           <span> offline device</span>
         </label>
-
-       
       </div>
     </div>
   );

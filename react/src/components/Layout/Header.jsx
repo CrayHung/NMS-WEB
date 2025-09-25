@@ -6,10 +6,18 @@ import { FaSignInAlt, FaSignOutAlt, FaBell } from "react-icons/fa";
 import wsService from "../../service/websocket";
 import logo from "../../assets/twowaylogo.png";
 
+import { TbTopologyStar } from "react-icons/tb";
+import { GoLog } from "react-icons/go";
+import { BsNodePlusFill } from "react-icons/bs";
+import { SiGooglemaps } from "react-icons/si";
+import { FiTerminal } from "react-icons/fi";
+
+
+
 export default function Header() {
   const {
     user, logout, focusDeviceOnMap,
-    alerts, addAlert, markAllAlertsRead, clearAllAlerts, 
+    alerts, addAlert, markAllAlertsRead, clearAllAlerts,
   } = useGlobalContext();
 
   const [showAlerts, setShowAlerts] = useState(false);
@@ -31,6 +39,7 @@ export default function Header() {
     if (path.startsWith("/service")) return "Service";
     if (path.startsWith("/nodes")) return "Nodes";
     if (path.startsWith("/dashboard")) return "Dashboard";
+    if (path.startsWith("/command-test")) return "Command Test";
     return "";
   }, [location.pathname]);
 
@@ -39,9 +48,10 @@ export default function Header() {
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
+
   const timeText = useMemo(
     () =>
-      now.toLocaleString("zh-TW", {
+      now.toLocaleString("en-US", {
         year: "numeric",
         month: "2-digit",
         day: "2-digit",
@@ -53,6 +63,21 @@ export default function Header() {
       }),
     [now]
   );
+
+  // const dt = new Date(); 
+
+  // const timeText = dt.toLocaleString("en-US", {
+  //   timeZone: "America/New_York",
+  //   year: "numeric",
+  //   month: "2-digit",
+  //   day: "2-digit",
+  //   hour: "2-digit",
+  //   minute: "2-digit",
+  //   second: "2-digit",
+  //   hour12: false
+  // });
+
+
 
   // 🔔 WebSocket 訂閱（只在 Header 做一次，所有頁共用 alerts）
   useEffect(() => {
@@ -122,7 +147,7 @@ export default function Header() {
       {/* 左邊：Logo + Title */}
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <img
-         src={logo}
+          src={logo}
           alt="Logo"
           style={{ height: 32 }}
         />
@@ -130,7 +155,7 @@ export default function Header() {
           {currentPageTitle}
         </h2>
       </div>
-    
+
       {/* 中間：Nav 固定置中 */}
       <nav style={{
         display: "flex",
@@ -140,17 +165,22 @@ export default function Header() {
         left: "50%",
         transform: "translateX(-50%)",
       }}>
-        <NavLink to="/map" end className={({ isActive }) => `nav-pill${isActive ? " active" : ""}`}>Map</NavLink>
-        <NavLink to="/nodes" end className={({ isActive }) => `nav-pill${isActive ? " active" : ""}`}>Nodes</NavLink>
-        <NavLink to="/network" end className={({ isActive }) => `nav-pill${isActive ? " active" : ""}`}>Network</NavLink>
-        <NavLink to="/service" end className={({ isActive }) => `nav-pill${isActive ? " active" : ""}`}>Service</NavLink>
+        <NavLink to="/map" end className={({ isActive }) => `nav-pill${isActive ? " active" : ""}`}><SiGooglemaps />Map</NavLink>
+        <NavLink to="/network" end className={({ isActive }) => `nav-pill${isActive ? " active" : ""}`}><TbTopologyStar />Network</NavLink>
+        <NavLink to="/service" end className={({ isActive }) => `nav-pill${isActive ? " active" : ""}`}><GoLog />Service</NavLink>
+
+        {/* <NavLink to="/nodes" end className={({ isActive }) => `nav-pill${isActive ? " active" : ""}`}> <BsNodePlusFill />Nodes</NavLink> */}
+        <NavLink to="/command-test" end className={({ isActive }) => `nav-pill${isActive ? " active" : ""}`}> <FiTerminal />Command-Test</NavLink>
+        
+        
       </nav>
 
       {/* 右側 */}
       <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
         <div style={{ color: "#fff", whiteSpace: "nowrap" }}>
           <strong>{user?.isLoggedIn ? (user.username || "User") : "Guest"}</strong>{" "}
-          <span style={{ fontVariantNumeric: "tabular-nums" }}>{timeText}</span>
+          <span style={{ fontVariantNumeric: "tabular-nums" }}>  {new Date().toLocaleString("en-US")}</span>
+
         </div>
 
         {/* 鈴鐺 */}
@@ -207,10 +237,10 @@ export default function Header() {
                 key={a.id}
                 // onClick={() => { a.deviceEui && focusDeviceOnMap?.(String(a.deviceEui), 16); navigate("/map"); setShowAlerts(false); }}
                 onClick={() => {
-                     a.deviceEui && focusDeviceOnMap?.(String(a.deviceEui), 16, true);
-                     navigate("/map");
-                     setShowAlerts(false);
-                   }}
+                  a.deviceEui && focusDeviceOnMap?.(String(a.deviceEui), 16, true);
+                  navigate("/map");
+                  setShowAlerts(false);
+                }}
                 style={{ padding: "10px 12px", borderBottom: "1px solid #f1f1f1", display: "grid", gridTemplateColumns: "1fr auto", gap: 8, background: a.acknowledged ? "#fafafa" : "#fff", cursor: "pointer" }}
               >
                 <div style={{ minWidth: 0 }}>

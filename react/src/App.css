@@ -1,231 +1,310 @@
-/* App.css */
+/* App.css - cleaned & consolidated
+   - 保留：header / sidebar (vertical & horizontal) / main-content / map / modal / responsive
+   - 重點：submenu 為靜態流（緊接在 Service 下方），覆蓋掉可能把父項變成「卡片」的樣式
+*/
 
-/* ===== 基礎佈局關鍵 ===== */
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
+/* ===== 變數 ===== */
+:root {
+  --header-h: 60px;
+  --content-pad: 20px;
+  --card-gap: 20px;
+  --sidebar-w: 220px;
+  --sidebar-horiz-h: 56px;
+  --map-min-width: 420px;
+  --header-bg: #1abc9c;
+  --sidebar-bg: linear-gradient(180deg,#0f1724,#111827);
+  --card-bg: #fff;
 }
 
-#root {
-  width: 100%;
-  height: 100%;
-  text-align: left;
-}
-
-/* 階層，避免遮蓋 */
-.sidebar { z-index: 100; }
-.header { z-index: 200; }
-
-/* ===== 全域 ===== */
+/* ===== Reset / base ===== */
+html, body, #root { height: 100%; margin: 0; padding: 0; }
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background: #f5f6fa;
   color: #333;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  box-sizing: border-box;
 }
 
-/* Header */
+/* ===== Header ===== */
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   width: 100%;
-  height: 60px;
-  background: #1abc9c;
-  padding: 0 20px;
+  height: var(--header-h);
+  background: var(--header-bg);
+  padding: 0 var(--content-pad);
   box-sizing: border-box;
+  z-index: 300;
 }
 .header-title { color: #fff; margin: 0; }
-.header-icons {
-  position: relative;
+.header-icons { display:flex; align-items:center; gap:8px; color:#fff; }
+
+/* ===== App layout (body) ===== */
+.app-body {
   display: flex;
-  align-items: center;
-  cursor: pointer;
-  color: #fff;
+  flex-direction: row;
+  min-height: 100vh;
+  box-sizing: border-box;
 }
 
-/* Sidebar */
+/* ===== Sidebar (desktop vertical & mobile horizontal) ===== */
 .sidebar {
-  background: #111827;
+  box-sizing: border-box;
+  background: var(--sidebar-bg);
   color: #fff;
-  height: 100vh;
-  padding: 10px;
-  transition: all 0.3s;
-}
-.sidebar.expanded { width: 200px; }
-.sidebar.collapsed { width: 60px; }
-.sidebar a { color: #fff; text-decoration: none; }
-.sidebar-item { display: flex; align-items: center; gap: 10px; }
-.toggle-btn { background: none; border: none; color: #fff; cursor: pointer; }
-.hamburger { display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; color: #fff; }
-
-/* 主內容 */
-.main-content { flex: 1; padding: 20px; }
-
-/* Dashboard Grid */
-.dashboard-grid { display: flex; gap: 20px; padding: 20px; flex-wrap: wrap; }
-
-/* node Grid */
-.node-grid { display: flex;gap: 20px; flex-wrap: wrap; }
-
-
-/* 卡片 */
-.card {
-  background: #fff;
-  border-radius: 8px;
-  padding: 15px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-  margin-bottom: 20px;
+  padding: 12px;
+  overflow: auto;
+  transition: width .18s ease, height .18s ease;
+  z-index: 250; /* < modal z-index */
 }
 
-/* 左圖表／右側欄 */
-.chart-card { flex: 2; min-width: 300px; }
-.side-panel { flex: 1; display: flex; flex-direction: column; gap: 20px; min-width: 250px; }
-
-/* 設備狀態 */
-.device-status-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
-.device-status-item { display: flex; flex-direction: column; align-items: center; flex: 1 1 80px; }
-
-/* Log */
-.log-card { flex: 1; overflow-y: auto; }
-.log-list { padding: 0; list-style: none; margin: 0; }
-.log-item { border-bottom: 1px solid #ddd; padding: 6px 0; font-size: 14px; }
-
-/* 表格（若有頁面用到） */
-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-th, td { border: 1px solid #ddd; padding: 8px; }
-th { background: #1abc9c; color: #fff; }
-tr:nth-child(even) { background: #f2f2f2; }
-
-/* 按鈕 */
-button {
-  background: #1abc9c; color: #fff; border: none;
-  padding: 6px 12px; border-radius: 4px; cursor: pointer;
-}
-button:hover { background: #16a085; }
-
-/* 其他（logo 動效保留） */
-.logo { height: 6em; padding: 1.5em; will-change: filter; transition: filter 300ms; }
-.logo:hover { filter: drop-shadow(0 0 2em #646cffaa); }
-.logo.react:hover { filter: drop-shadow(0 0 2em #61dafbaa); }
-@keyframes logo-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo { animation: logo-spin infinite 20s linear; }
+/* desktop vertical */
+.sidebar.vertical {
+  width: var(--sidebar-w);
+  flex: 0 0 var(--sidebar-w);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 }
 
-/* RWD */
-@media (max-width: 640px) {
-  .dashboard-grid { flex-direction: column; }
-  .chart-card, .side-panel { flex: 1 1 100%; }
-}
-@media (max-width: 768px) {
-  .header { flex-direction: column; align-items: flex-start; padding: 10px; }
-  .header-title { margin-bottom: 10px; }
-}
-@media (min-width: 769px) {
-  .hamburger { display: none; } /* 桌面隱藏漢堡 */
-}
-@media (min-width: 641px) and (max-width: 1024px) {
-  .dashboard-grid { flex-direction: row; }
-  .chart-card { flex: 2; }
-  .side-panel { flex: 1; }
-}
-@media (min-width: 1025px) {
-  .dashboard-grid { flex-direction: row; }
+/* mobile horizontal */
+@media (max-width: 1024px) {
+  .sidebar {
+    width: 100%;
+    flex: 0 0 auto;
+    height: var(--sidebar-horiz-h);
+    padding: 6px 8px;
+    display: flex;
+    align-items: center;
+    overflow-x: auto;
+  }
+  .sidebar-nav { display:flex; gap:8px; align-items:center; padding:0 6px; width:100%; }
+  /* 若只要 icon，可隱藏文字 */
+  .sidebar.horizontal .nav-text { display: none; }
 }
 
-/* 讓導覽字串橫向排列，維持白字、間距 */
-.header-nav {
+/* Sidebar nav and items */
+.sidebar-nav { padding: 8px 12px; box-sizing: border-box; }
+.sidebar-item {
   display: flex;
   align-items: center;
-  gap: 16px;
-}
-
-/* 連結維持 header 的白字風格 */
-.header-nav .nav-link {
-  color: #fff;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: #e6eef8;
   text-decoration: none;
-  font-weight: 500;
-  opacity: 0.9;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background .12s ease, box-shadow .12s ease;
+  width: 100%;
+  box-sizing: border-box;
+  position: relative;
+}
+.sidebar-item:hover { background: rgba(255,255,255,0.02); }
+
+/* active style with left color bar */
+.sidebar-item.active {
+  background: rgba(255,255,255,0.04);
+  box-shadow: 0 8px 20px rgba(2,6,23,0.35);
+  font-weight: 800;
+}
+.sidebar-item.active::before {
+  content: "";
+  position: absolute; left: 0; top: 6px; bottom: 6px; width: 6px; border-radius:6px;
+  background: linear-gradient(180deg,#60a5fa,#7c3aed);
 }
 
-.header-nav .nav-link:hover {
+/* icon & text */
+.nav-icon { flex: 0 0 26px; display: inline-flex; justify-content:center; align-items:center; font-size:18px; color:#cbd5e1; }
+.nav-text { display:inline-block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; }
+
+/* nav-pill compatibility (keep previous rules but ensure block layout) */
+.nav-pill { display:flex; align-items:center; gap:10px; padding:12px 16px; text-decoration:none; color:inherit; border-radius:14px; }
+
+/* ===== Parent item + submenu (static flow) ===== */
+/* Important: ensure parent is not rendered as a "card" - remove background/padding that could create big box */
+.sidebar-item.parent {
+  display: block;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+/* parent button row */
+.parent-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  justify-content: space-between;
+  box-sizing: border-box;
+}
+.parent-btn .caret { margin-left: auto; font-size:12px; opacity:0.85; }
+
+/* Submenu: static, placed immediately after parent button (not absolute) */
+.submenu {
+  display: block;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 180ms ease, opacity 140ms ease, padding 140ms ease;
+  opacity: 0;
+  padding: 0;
+  margin: 0;
+}
+/* open state */
+.submenu.open {
+  max-height: 400px; /* 足夠放下子項 */
   opacity: 1;
-  text-decoration: underline;
+  padding: 6px 0 10px 8px;
 }
 
-/* 當前頁高亮（不突兀） */
-.header-nav .nav-link.active {
-  text-decoration: underline;
-  font-weight: 600;
+/* sub-item styling */
+.sub-item, .nav-pill.sub-item {
+  display: block;
+  padding: 8px 18px;
+  font-size: 14px;
+  color: #e6e6e6;
+  text-decoration: none;
+  border-radius: 6px;
+  margin: 2px 8px;
 }
-/* Header 導覽共用樣式 */
-.nav-pill{
-  color:#fff;
-  text-decoration:none;
-  padding:8px 14px;
-  border-radius:14px;
-  border:1px solid rgba(255,255,255,.35);
-  background:transparent;
-  font-weight:800;
-  letter-spacing:.2px;
-  display:inline-block;
-  line-height:1;
-  transition:background .15s ease, color .15s ease, opacity .15s ease, box-shadow .15s ease;
-  opacity:.85;
-}
-.nav-pill:hover{
-  opacity:1;
-  box-shadow:0 0 0 3px rgba(255,255,255,.18) inset;
-}
+.sub-item:hover { background: rgba(255,255,255,0.04); color: #fff; }
+.sub-item.active { background: rgba(255,255,255,0.06); font-weight:700; color:#fff; }
 
-/* 被選到（你的截圖那種半透明白底、邊框更明顯） */
-.nav-pill.active{
-  background:rgba(255,255,255,.22);
-  border-color:rgba(255,255,255,.6);
-  color:#fff;                /* 仍維持白字（搭你的綠色底） */
-  opacity:1;
+/* ensure submenu hidden on horizontal mobile if desired */
+.sidebar.horizontal .submenu { display: none; }
+
+/* ===== Main content ===== */
+.main-content {
+  flex: 1 1 auto;
+  padding: var(--content-pad);
+  box-sizing: border-box;
+  min-width: 0;
 }
 
-/* 若想更強烈對比（選到變白底、字變綠）：把上面 .active 換成這組 */
-/*
-.nav-pill.active{
-  background:#fff;
-  color:#14b8a6;            // 和你的 header 綠相近
-  border-color:#fff;
+/* Dashboard grid (map + side filter) */
+.dashboard-grid {
+  display: flex;
+  gap: var(--card-gap);
+  /* padding: var(--content-pad); */
+  flex-wrap: wrap;
+  align-items: stretch;
 }
-*/
 
-
-
-
-
-/* RWD 地圖容器：用 viewport 高度做比例，並加上下限/上限 */
+/* map-card & map-container */
+.map-card {
+  flex: 1 1 0;
+  min-width: var(--map-min-width);
+  display: flex;
+  flex-direction: column;
+}
+.map-card p { margin: 6px 0 10px; }
 .map-container {
   width: 100%;
-  height: clamp(260px, 60vh, 720px); /* 預設：60vh，最小 260px，最大 720px */
+  height: clamp(280px, calc(100vh - var(--header-h) - 180px), 820px);
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  flex: 1 1 auto;
 }
 
-/* 手機：稍微矮一點，避免占滿整頁 */
+/* right filter card */
+.map-filter-card {
+  width: 300px;
+  max-height: calc(100vh - var(--header-h) - 2*var(--content-pad));
+  overflow: auto;
+}
+
+/* ===== Card common ===== */
+.card {
+  background: var(--card-bg);
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  margin-bottom: var(--card-gap);
+}
+
+/* table, logs, buttons */
+table { width:100%; border-collapse: collapse; margin-top:10px; }
+th, td { border: 1px solid #ddd; padding:8px; }
+th { background: #1abc9c; color:#fff; }
+tr:nth-child(even) { background:#f2f2f2; }
+
+button {
+  background: #1abc9c; color:#fff; border: none;
+  padding: 6px 12px; border-radius:4px; cursor:pointer;
+}
+button:hover { background:#16a085; }
+
+/* small visual polish */
+.logo { height:6em; padding:1.5em; will-change: filter; transition: filter 300ms; }
+.logo:hover { filter: drop-shadow(0 0 2em #646cffaa); }
+
+/* ===== Google Maps InfoWindow tweaks ===== */
+.gm-style .gm-style-iw-tc { display: none !important; }
+.gm-style .gm-style-iw-c {
+  box-shadow: none !important;
+  border-radius: 12px !important;
+  padding: 0 !important;
+  border: none !important;
+  overflow: visible !important;
+  background: transparent !important;
+}
+.gm-ui-hover-effect { display: none !important; }
+.gm-style .gm-style-iw-d { overflow: visible !important; max-height: none !important; }
+
+/* ===== Modal overlay & dialog ===== */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+  display: grid; place-items: center; z-index: 9999;
+}
+.modal-card {
+  width: 85vw; height: 85vh; max-width:1200px; max-height:920px;
+  overflow: hidden; padding:16px; display:flex; flex-direction:column;
+  background:#fff; border-radius:8px; box-shadow:0 12px 40px rgba(2,6,23,0.6);
+  z-index: 10000;
+}
+.modal-card > .modal-body { overflow-y:auto; flex:1; }
+
+/* ===== Responsive adjustments ===== */
+@media (max-width: 1024px) {
+  .dashboard-grid { flex-direction: column; }
+  .map-card { min-width: 0; }
+  .map-container { height: clamp(260px, calc(100vh - var(--header-h) - 220px), 760px); }
+  .map-filter-card { width: auto; max-height: none; }
+  .header { flex-direction: column; align-items: flex-start; padding:10px; height: auto; }
+  .header-title { margin-bottom: px; }
+}
+
 @media (max-width: 640px) {
-  .map-container {
-    height: clamp(220px, 45vh, 520px);
-  }
+  .map-container { height: clamp(240px, 65vh, 720px); }
 }
 
-/* 平板：中等高度 */
-@media (min-width: 641px) and (max-width: 1024px) {
-  .map-container {
-    height: clamp(240px, 55vh, 640px);
-  }
+@media (max-width: 420px) {
+  .sidebar { padding: 6px; }
+  .sidebar .sidebar-item { padding: 6px 8px; min-width: 44px; }
 }
 
-/* 桌機：給更大的視野 */
-@media (min-width: 1025px) {
-  .map-container {
-    height: clamp(280px, 65vh, 780px);
-  }
-}
+/* small helpers kept from original */
+.header-nav { display:flex; align-items:center; gap:16px; }
+.header-nav .nav-link { color:#fff; text-decoration:none; font-weight:500; opacity:0.9; }
+.header-nav .nav-link:hover { opacity:1; text-decoration:underline; }
+
+/* ensure .nav-pill remains usable as inline pill if used elsewhere */
+.nav-pill { gap:10px; display:inline-flex; align-items:center; }
+
+/* small accessibility polish */
+.sidebar .sidebar-item { outline: none; }
+
+/* End cleaned App.css */

@@ -183,7 +183,8 @@ export default function Gateway() {
   const handleSave = useCallback(async () => {
     if (!isFormValid || saving) return;
 
-    const nowISO = new Date().toISOString();
+    const nowISO = new Date().toLocaleString("en-US");
+    // const nowISO = new Date().toISOString();
     const gatewayEui = form.gatewayEui.trim(); 
     const latNum = toNum(form.latitude);
     const lngNum = toNum(form.longitude);

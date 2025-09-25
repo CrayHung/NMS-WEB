@@ -109,7 +109,8 @@ const Notification = () => {
               {
                 type: alarm.alarmType || levelToType(alarm.level),
                 message: alarm.message || 'Alarm',
-                timestamp: new Date(alarm.timestamp || Date.now()).toISOString(),
+                // timestamp: new Date(alarm.timestamp || Date.now()).toISOString(),
+                timestamp: new Date(alarm.timestamp || Date.now()).toLocaleString("en-US"),
               },
             ],
           },
@@ -187,13 +188,13 @@ const Notification = () => {
                 </div>
 
                 {/* 音效開關（僅 UI） */}
-                <Form.Check
+                {/* <Form.Check
                   type="switch"
                   id="audio-switch"
                   label="Audio Alert"
                   checked={audioEnabled}
                   onChange={(e) => setAudioEnabled(e.target.checked)}
-                />
+                /> */}
 
                 {/* 等級篩選 */}
                 <Form.Select

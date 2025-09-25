@@ -23,7 +23,8 @@ class WebSocketService {
       reconnectDelay: 5000,
       heartbeatIncoming: 4000,
       heartbeatOutgoing: 4000,
-      debug: (s) => import.meta.env.DEV && console.log('[STOMP]', s),
+      debug: () => {},
+      // debug: (s) => import.meta.env.DEV && console.log('[STOMP]', s),
 
       onConnect: (frame) => {
         console.log('WebSocket Connected:', frame);

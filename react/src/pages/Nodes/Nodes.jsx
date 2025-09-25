@@ -4,6 +4,7 @@ import Gateway from "./pages/Gateway";
 import Transponder from "./pages/Transponder";
 import Ampifer from "./pages/Ampifer";
 import Device from "./pages/Device";
+import Setting from "./pages/Setting";
 
 const TABS = [
   // { key: "server", label: "Server" },
@@ -11,6 +12,7 @@ const TABS = [
   // { key: "transponder", label: "Transponder" },
   // { key: "ampifer", label: "Ampifer" },
   { key: "device", label: "Device" },
+  // { key: "setting", label: "Setting" },
 ];
 
 export default function Nodes() {
@@ -45,12 +47,14 @@ export default function Nodes() {
 
       {/* Tab Content */}
       <div className="card" style={{ width: "100%" }}>
-        {active === "server" && <Server />}
+        {/* {active === "server" && <Server />} */}
         {active === "gateway" && <Gateway />}
         {/* {active === "transponder" && <Transponder />}
         {active === "ampifer" && <Ampifer />} */}
 
         {active === "device" && <Device />}
+
+        {/* {active === "setting" && <Setting />} */}
 
       </div>
     </div>

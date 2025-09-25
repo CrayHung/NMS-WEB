@@ -73,7 +73,9 @@ const History = () => {
                             ? Number(filters.alarmLevel)
                             : filters.alarmLevel),
                 start: start.toISOString(),
+                // start: start.toLocaleString("en-US"),
                 end: end.toISOString(),
+                // end: end.toLocaleString("en-US"),
                 page: currentPage, // 0-based
                 size: 50,
             };

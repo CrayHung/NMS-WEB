@@ -106,9 +106,9 @@
 
 // ]
 
-import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { mapApiToApp } from "./utils/mapApiToApp";
-import { apiUrl,apiFetch } from './lib/api';
+import { apiUrl, apiFetch } from './lib/api';
 
 const GlobalContext = createContext(null);
 export const useGlobalContext = () => useContext(GlobalContext);
@@ -124,7 +124,7 @@ export const GlobalProvider = ({ children }) => {
 
   // 原始 API 資料（完整保留）
   const [rawData, setRawData] = useState(null);
-  //當只有新增gateway而底下沒有device時,要透過
+  //當只有新增gateway而底下沒有device時,要透過setRawGateways
   const [rawGateways, setRawGateways] = useState([]);
 
   const [deviceData, setDeviceData] = useState([]);   // nodes
@@ -132,6 +132,69 @@ export const GlobalProvider = ({ children }) => {
 
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const [selectedDevice, setSelectedDevice] = useState(null);
+
+
+
+
+
+  const currentCtrlRef = useRef < AbortController | null > (null);
+
+  // 單次抓資料（與現有的 loadData 幾乎相同，只是把 ctrl 換成 ref 管理）
+  const loadData = useCallback(async () => {
+    // 若上一輪尚未結束就中止
+    if (currentCtrlRef.current) currentCtrlRef.current.abort();
+    const ctrl = new AbortController();
+    currentCtrlRef.current = ctrl;
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const res = await apiFetch('/amplifier/devices', { signal: ctrl.signal });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+
+      setRawData(json);
+
+      const { nodes, links } = mapApiToApp(json, deviceData, deviceLink);
+      setDeviceData(nodes);
+      setDeviceLink(links);
+    } catch (e) {
+      if ((e)?.name !== 'AbortError') setError(e);
+    } finally {
+      setLoading(false);
+      // 本輪完成後清空 controller
+      if (currentCtrlRef.current === ctrl) currentCtrlRef.current = null;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiFetch, mapApiToApp, deviceData, deviceLink]); // or用 refs 來避免依賴也可
+
+
+
+  
+  // 30 秒輪詢（setInterval 版本）：先跑一次，之後每 30 秒跑一次
+  useEffect(() => {
+    // 先抓一次
+    loadData();
+
+    const interval = setInterval(() => {
+      // console.log("[GlobalContext] 資料更新於", new Date().toLocaleString());
+      loadData();
+    }, 30000);
+
+    return () => {
+      clearInterval(interval);
+      // 卸載時中止未完成請求
+      if (currentCtrlRef.current) currentCtrlRef.current.abort();
+    };
+  }, [loadData]);
+
+
+
+
+
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -159,11 +222,11 @@ export const GlobalProvider = ({ children }) => {
     }
     fetchData();
     return () => ctrl.abort();
-  }, []); 
+  }, []);
 
-  useEffect(()=>{
-    console.log("deviceData : ", JSON.stringify(deviceData, null, 2))
-  },[])
+  useEffect(() => {
+    // console.log("deviceData : ", JSON.stringify(deviceData, null, 2))
+  }, [])
 
   // 原始資料的索引（讓元件可由 deviceId 快速回查 raw）
   const rawDeviceById = useMemo(() => {
@@ -197,7 +260,7 @@ export const GlobalProvider = ({ children }) => {
   // 地圖聚焦
   const [mapFocus, setMapFocus] = useState(null);
   // const focusDeviceOnMap = (deviceId, zoom = 15) => {
-    const focusDeviceOnMap = (deviceId, zoom = 15, openInfo = true) => {
+  const focusDeviceOnMap = (deviceId, zoom = 15, openInfo = true) => {
     const dev = (deviceData || []).find((d) => String(d.deviceId) === String(deviceId));
     if (!dev) return;
     setMapFocus({
@@ -270,6 +333,11 @@ export const GlobalProvider = ({ children }) => {
 
         //共享告警 API
         alerts, addAlert, acknowledgeAlert, markAllAlertsRead, clearAcknowledgedAlerts, clearAllAlerts,
+
+        loadData,
+
+        selectedDevice,
+        setSelectedDevice,
       }}
     >
       {children}

@@ -129,7 +129,8 @@ export default function Server() {
     alert('handleSave called');
     if (!isFormValid) return;
 
-    const nowISO = new Date().toISOString();
+    // const nowISO = new Date().toISOString();
+    const nowISO = new Date().toLocaleString("en-US");
 
     const newId = editingId ?? `srv_${Date.now()}`;
 

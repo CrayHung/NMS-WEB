@@ -150,7 +150,8 @@ export default function Device() {
     // 新增/更新（本地）→ 立即 GET 同步狀態 → 更新 node / gateway node / edge
     const handleSave = useCallback(async () => {
         if (!isFormValid || saving) return;
-        const nowISO = new Date().toISOString();
+        // const nowISO = new Date().toISOString();
+        const nowISO = new Date().toLocaleString("en-US");
         const id = form.deviceEui.trim();
 
         setSaving(true);

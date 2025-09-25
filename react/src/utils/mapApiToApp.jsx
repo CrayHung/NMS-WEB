@@ -57,11 +57,11 @@ export function mapApiToApp(api, existingNodes = [], existingLinks = []) {
       newNodes.push({
         deviceId: devId,
         deviceName: dev.partName || dev.serialNumber || devId,
-        onlineStatus: dev.onlineStatus, 
+        onlineStatus: dev.onlineStatus,
         type: "device",
         // longitude: dLon != null ? String(dLon) : "",
         // latitude: dLat != null ? String(dLat) : "",
-        latitude:  lat ?? null,              
+        latitude: lat ?? null,
         longitude: lon ?? null,
         temperature: dev.temperature ?? null,
         humidity: null,
@@ -69,6 +69,55 @@ export function mapApiToApp(api, existingNodes = [], existingLinks = []) {
         lastUpdated: dev.lastUpdated || dev.lastSeen || null,
         alerts: [],
         position: { x: 0, y: 0 },
+
+
+        deviceEui: dev.deviceEui,
+        partName: dev.partName,
+        partNumber: dev.partNumber,
+        serialNumber: dev.serialNumber,
+        hwVersion: dev.hwVersion,
+        fwVersion: dev.fwVersion,
+        location: dev.location,
+        gpsLocation: dev.gpsLocation,
+        siteName: dev.siteName,
+        siteId: dev.siteId,
+        cabinetId: dev.cabinetId,
+        rackPosition: dev.rackPosition,
+        workingMode: dev.workingMode,
+        dfuType: dev.dfuType,
+        unitStatus: dev.unitStatus,
+        statusText: dev.statusText,
+        temperature: dev.temperature,
+        voltage: dev.voltage,
+        ripple: dev.ripple,
+        current: dev.current,
+        rfInputPower: dev.rfInputPower,
+        rfOutputPower: dev.rfOutputPower,
+        pilotLowPower: dev.pilotLowPower,
+        pilotHighPower: dev.pilotHighPower,
+        outputSlope: dev.outputSlope,
+        tempAlarmStatus: dev.tempAlarmStatus,
+        voltAlarmStatus: dev.voltAlarmStatus,
+        rippleAlarmStatus: dev.rippleAlarmStatus,
+        tcpAlarmStatus: dev.tcpAlarmStatus,
+        tempHighAlarm: dev.tempHighAlarm,
+        tempLowAlarm: dev.tempLowAlarm,
+        voltHighAlarm: dev.voltHighAlarm,
+        voltLowAlarm: dev.voltLowAlarm,
+        rippleHighAlarm: dev.rippleHighAlarm,
+        rfInputAvgPower: dev.rfInputAvgPower,
+        rfOutputAvgPower: dev.rfOutputAvgPower,
+        rfGainAvg: dev.rfGainAvg,
+        rfPowerLastUpdated: dev.rfPowerLastUpdated,
+        lastUpdated: dev.lastUpdated,
+        lastModelInfoUpdated: dev.lastModelInfoUpdated,
+        lastConfigUpdated: dev.lastConfigUpdated,
+        onlineStatus: dev.onlineStatus,
+        lastSeen: dev.lastSeen,
+
+
+
+
       });
       nodesById.set(devId, true);
     }
@@ -76,17 +125,25 @@ export function mapApiToApp(api, existingNodes = [], existingLinks = []) {
     // ---- gateway node ----
     if (gwId) {
       if (!nodesById.has(gwId)) {
-        const gwStatus = dev.gateway.onlineStatus;
+
         newNodes.push({
           deviceId: gwId,
           deviceName: dev.gateway.name || gwId,
-          onlineStatus: gwStatus, 
+          onlineStatus: dev.gateway.onlineStatus,
           type: "gateway",
           longitude: dev.gateway.longitude != null ? String(dev.gateway.longitude) : "",
           latitude: dev.gateway.latitude != null ? String(dev.gateway.latitude) : "",
           lastUpdated: dev.gateway.lastSeen || null,
           alerts: [],
           position: { x: 0, y: 0 },
+
+
+          gatewayEui: dev.gateway.gatewayEui,
+          name: dev.gateway.name,
+          location: dev.gateway.location,
+          altitude: dev.gateway.altitude,
+          lastSeen: dev.gateway.lastSeen,
+
         });
         nodesById.set(gwId, true);
       }

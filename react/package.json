@@ -18,6 +18,7 @@
     "@react-google-maps/api": "^2.20.7",
     "@stomp/stompjs": "^7.1.1",
     "@xyflow/react": "^12.8.4",
+    "axios": "^1.12.2",
     "bootstrap": "^5.3.8",
     "dagre": "^0.8.5",
     "date-fns": "^4.1.0",

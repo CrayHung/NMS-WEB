@@ -1,10 +1,9 @@
 import React, { useState } from "react";
 import Server from "./pages/Server";
 import Gateway from "./pages/Gateway";
-import Transponder from "./pages/Transponder";
-import Ampifer from "./pages/Ampifer";
+
 import Device from "./pages/Device";
-import Setting from "./pages/Setting";
+
 
 const TABS = [
   // { key: "server", label: "Server" },

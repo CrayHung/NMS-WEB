@@ -117,6 +117,8 @@ export default function Sidebar({ setCurrentPage }) {
 
     { to: "/command-test", label: "Command Test", icon: <FiTerminal /> },
 
+    { to: "/test", label: "Test", icon: <FiTerminal /> },
+
   ], []);
 
   // 控制哪些父項展開

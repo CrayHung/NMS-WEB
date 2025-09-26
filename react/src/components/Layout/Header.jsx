@@ -4,7 +4,7 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useGlobalContext } from "../../GlobalContext";
 import { FaSignInAlt, FaSignOutAlt, FaBell } from "react-icons/fa";
 import wsService from "../../service/websocket";
-import logo from "../../assets/twowaylogo.png";
+import logo from "../../assets/twowaylogo2.png";
 
 import { TbTopologyStar } from "react-icons/tb";
 import { GoLog } from "react-icons/go";
@@ -40,6 +40,7 @@ export default function Header() {
     if (path.startsWith("/nodes")) return "Nodes";
     if (path.startsWith("/dashboard")) return "Dashboard";
     if (path.startsWith("/command-test")) return "Command Test";
+    if (path.startsWith("/test")) return " Test";
     return "";
   }, [location.pathname]);
 
@@ -170,9 +171,11 @@ export default function Header() {
         <NavLink to="/service" end className={({ isActive }) => `nav-pill${isActive ? " active" : ""}`}><GoLog />Service</NavLink>
 
         {/* <NavLink to="/nodes" end className={({ isActive }) => `nav-pill${isActive ? " active" : ""}`}> <BsNodePlusFill />Nodes</NavLink> */}
-        <NavLink to="/command-test" end className={({ isActive }) => `nav-pill${isActive ? " active" : ""}`}> <FiTerminal />Command-Test</NavLink>
+        {/* <NavLink to="/command-test" end className={({ isActive }) => `nav-pill${isActive ? " active" : ""}`}> <FiTerminal />Command-Test</NavLink> */}
         
-        
+        <NavLink to="/test" end className={({ isActive }) => `nav-pill${isActive ? " active" : ""}`}> <FiTerminal />Test</NavLink>
+
+
       </nav>
 
       {/* 右側 */}

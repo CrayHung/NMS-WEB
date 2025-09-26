@@ -2,7 +2,9 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGlobalContext } from "./GlobalContext";
-import logo from "./assets/logo.png";
+// import logo from "./assets/twowaylogo.png";
+// import logo from "../src/assets/twowaylogo.png";
+import logo from "./assets/twowaylogo2.png";
 
 export default function Login() {
   const [username, setUsername] = useState("");
@@ -25,16 +27,23 @@ export default function Login() {
     <div style={styles.container}>
       <div style={styles.card}>
         {/* 左側 logo */}
-        <img src={logo} alt="logo" style={styles.logo} />
+        <img
+          src={logo}
+          alt="Logo"
+          style={{
+            height: 40,
+            filter: "drop-shadow(2px 2px 4px rgba(6,6,6,6))" // 外框效果
+          }}
+        />
 
         {/* 右側內容 */}
         <div style={styles.content}>
-          <h2 style={styles.title}>log in</h2>
+          <h2 style={styles.title}>Login</h2>
           {error && <p style={styles.error}>{error}</p>}
           <form onSubmit={handleLogin} style={styles.form}>
             <input
               type="text"
-              placeholder="usernaame（admin）"
+              placeholder="username（admin）"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               style={styles.input}
@@ -46,7 +55,7 @@ export default function Login() {
               onChange={(e) => setPassword(e.target.value)}
               style={styles.input}
             />
-            <button type="submit" style={styles.button}>log in</button>
+            <button type="submit" style={styles.button}>Login</button>
           </form>
         </div>
       </div>

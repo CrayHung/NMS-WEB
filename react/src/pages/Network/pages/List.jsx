@@ -36,7 +36,7 @@ function DeviceDetailModal({ deviceEui, onClose }) {
     { key: 'spectrum', label: 'Spectrum' },
     // { key: 'diagnostics', label: 'Diagnostics' },
     { key: 'dashboard', label: 'Dashboard' },
-    { key: 'config', label: 'Configuration' },
+    // { key: 'config', label: 'Configuration' },
   ];
 
   const [active, setActive] = useState('device');
@@ -87,6 +87,27 @@ function DeviceDetailModal({ deviceEui, onClose }) {
     if (err) return <div style={{ padding: 12, color: 'crimson' }}>Load failed: {String(err.message || err)}</div>;
     if (!data) return null;
 
+
+    //為了增加USA字串
+    const normalizeLocation = (loc) => {
+      if (!loc) return loc;
+      const s = String(loc).trim();
+    
+      // 規則1：指定地址完全相同 → 補上 ", USA"
+      const exact = "801 Allen Y. Lew Place NW, Washington, DC 20001,";
+      if (s === exact) return `${s} USA`;
+    
+      // 規則2：一般化處理：尾端是 "Washington, DC 12345" 且沒有 USA → 補上 ", USA"
+      const endsWithWDCZip = /Washington,\s*DC\s*\d{5}$/i.test(s);
+      const hasUSA = /,\s*USA$/i.test(s);
+      if (endsWithWDCZip && !hasUSA) return `${s}, USA`;
+    
+      return s;
+    };
+    
+
+
+
     let { lat, lon } = parseGpsLocation(data.gpsLocation);
     if (lat == null || lon == null) {
       const p = parseLocationString(data.location);
@@ -102,7 +123,9 @@ function DeviceDetailModal({ deviceEui, onClose }) {
           <Row k="Serial Number" v={data.serialNumber} />
           <Row k="HW Version" v={data.hwVersion} />
           <Row k="FW Version" v={data.fwVersion} />
-          <Row k="Location(raw)" v={data.location} />
+          {/* <Row k="Location(raw)" v={data.location} /> */}
+          <Row k="Location(raw)" v={normalizeLocation(data.location)} />
+
           <Row k="Location(parsed)" v={lat != null && lon != null ? `${lat}, ${lon}` : '-'} />
           <Row k="Online" v={String(data.onlineStatus)} />
           <Row
@@ -132,8 +155,8 @@ function DeviceDetailModal({ deviceEui, onClose }) {
           <Row k="Voltage(V)" v={data.voltage} />
           {/* <Row k="Current(mA)" v={data.current} /> */}
           <Row k="Ripple(mV)" v={data.ripple} />
-          <Row k="RF In Power(dBmV)" v={data.rfInputPower} />
-          <Row k="RF Out Power(dBmV)" v={data.rfOutputPower} />
+          {/* <Row k="RF In Power(dBmV)" v={data.rfInputPower} />
+          <Row k="RF Out Power(dBmV)" v={data.rfOutputPower} /> */}
           <Row k="rfInputAvgPower" v={data.rfInputAvgPower} />
           <Row k="rfOutputAvgPower" v={data.rfOutputAvgPower} />
           <Row k="rfGainAvg(dB)" v={data.rfGainAvg} />
@@ -164,8 +187,8 @@ function DeviceDetailModal({ deviceEui, onClose }) {
       return (
         <>
         <div>
-          <Row k="RF In Power (dBmV)" v={data.rfInputPower} />
-          <Row k="RF Out Power (dBmV)" v={data.rfOutputPower} />
+          {/* <Row k="RF In Power (dBmV)" v={data.rfInputPower} />
+          <Row k="RF Out Power (dBmV)" v={data.rfOutputPower} /> */}
           {/* <Row k="Gain Avg" v={data.rfGainAvg} /> */}
           {/* <Row k="Last Updated" v={data.rfPowerLastUpdated ? new Date(data.rfPowerLastUpdated).toISOString("en-US") : '-'} /> */}
           <Row k="Last Updated" v={data.rfPowerLastUpdated ? new Date(data.rfPowerLastUpdated).toLocaleString("en-US") : '-'} />
@@ -335,8 +358,8 @@ export default function List() {
 
   // UI：小徽章
   const OnlineBadge = ({ flag }) => (
-    flag ? <span style={{ color: '#16a34a', fontWeight: 600 }}>online</span>
-      : <span style={{ color: '#ef4444', fontWeight: 600 }}>offline</span>
+    flag ? <span style={{ color: '#16a34a', fontWeight: 600 }}>Online</span>
+      : <span style={{ color: '#ef4444', fontWeight: 600 }}>Offline</span>
   );
 
   if (loading) return <div className="card" style={{ padding: 12 }}>Loading…</div>;
@@ -348,18 +371,18 @@ export default function List() {
       <div className="card" style={{ overflowX: 'auto' }}>
         <h4 style={{ marginTop: 0 }}>Gateways</h4>
         {gateways.length === 0 ? (
-          <div style={{ color: '#666' }}>No gateways</div>
+          <div style={{ color: '#666' }}>No Gateways</div>
         ) : (
           <table>
             <thead>
               <tr>
-                <th>gatewayEui</th>
-                <th>name</th>
-                <th>online</th>
-                <th>latitude</th>
-                <th>longitude</th>
-                <th>last seen</th>
-                <th># devices</th>
+                <th>GatewayEui</th>
+                <th>Name</th>
+                <th>Online</th>
+                <th>Latitude</th>
+                <th>Longitude</th>
+                <th>Last seen</th>
+                <th># Devices</th>
               </tr>
             </thead>
             <tbody>
@@ -395,13 +418,16 @@ export default function List() {
               <table>
                 <thead>
                   <tr>
-                    <th>id</th>
-                    <th>name</th>
-                    <th>type</th>
-                    <th>online</th>
-                    <th>longitude</th>
-                    <th>latitude</th>
-                    <th>updated</th>
+                    <th>DeviceEui</th>
+                    <th>Serial Number</th>
+                    <th>Model</th>
+                    <th>Part Number</th>
+           
+                    <th>Type</th>
+                    <th>Online</th>
+                    <th>Longitude</th>
+                    <th>Latitude</th>
+                    <th>Updated</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -426,8 +452,10 @@ export default function List() {
                             {d.deviceEui}
                           </button>
                         </td>
-                        <td>{d.partName || d.serialNumber || '-'}</td>
-                        <td>device</td>
+                        <td>{ d.serialNumber ||'-'}</td>
+                        <td>{ d.partName ||'-'}</td>
+                        <td>{ d.partNumber ||'-'}</td>
+                        <td>Device</td>
                         <td><OnlineBadge flag={!!d.onlineStatus} /></td>
                         <td>{lon ?? ''}</td>
                         <td>{lat ?? ''}</td>

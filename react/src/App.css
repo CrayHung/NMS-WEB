@@ -203,11 +203,18 @@ body {
 }
 
 /* map-card & map-container */
+/* .map-card {
+  flex: 1 1 0;
+  min-width: var(--map-min-width);
+  display: flex;
+  flex-direction: column;
+} */
 .map-card {
   flex: 1 1 0;
   min-width: var(--map-min-width);
   display: flex;
   flex-direction: column;
+  height: calc(100vh - var(--header-h) - 2*var(--content-pad)); /* 固定高度 */
 }
 .map-card p { margin: 6px 0 10px; }
 .map-container {
@@ -308,3 +315,71 @@ button:hover { background:#16a085; }
 .sidebar .sidebar-item { outline: none; }
 
 /* End cleaned App.css */
+
+
+
+/* 統計卡片 header */
+.stat-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.stat-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #2f4f3a;
+  margin: 0;
+}
+
+/* 圓形圖示背景 */
+.stat-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #1abc9c;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+/* grid 讓數字對齊 */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  text-align: center;
+}
+
+.stat-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #6b7280;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: #333;
+}
+
+/* 狀態顏色 */
+.stat-label.online,
+.stat-value.online {
+  color: green;
+}
+.stat-label.offline,
+.stat-value.offline {
+  color: red;
+}

@@ -15,7 +15,7 @@ import dagre from '@dagrejs/dagre';
 import { apiFetch } from '../../../lib/api';
 import { mapApiToApp } from '../../../utils/mapApiToApp';
 
-// ---- 顏色規則 ----
+/* ---------------------- 顏色規則 ---------------------- */
 const COLORS = {
   OK:   { bg: '#dcfce7', border: '#16a34a', pillBg: '#22c55e22', pillText: '#166534' }, // 綠
   WARN: { bg: '#fef9c3', border: '#eab308', pillBg: '#f59e0b22', pillText: '#7c2d12' }, // 黃
@@ -37,8 +37,13 @@ function getNodeColors(data) {
   return abnormal ? COLORS.WARN : COLORS.OK; // case1/2
 }
 
-// 自訂節點
-function DeviceNode({ data, selected }) {
+/* ---------------------- 自訂節點 ---------------------- */
+/**
+ * DeviceNode
+ * - 把 NodeToolbar 的 isVisible 改成看 data.hovered（滑鼠懸浮時顯示）
+ * - 保留 selected 的陰影樣式，不改變原有「被選取時」的視覺
+ */
+function DeviceNode({ id, data, selected }) {
   const { bg, border, pillBg, pillText } = getNodeColors(data);
 
   const pill = (
@@ -85,7 +90,8 @@ function DeviceNode({ data, selected }) {
       <Handle type="target" position={RFPosition.Top} />
       <Handle type="source" position={RFPosition.Bottom} />
 
-      <NodeToolbar isVisible={selected} position={RFPosition.Top} align="center">
+      {/* ★ 由 selected 改為 data.hovered 控制顯示（hover 顯示、移開關閉） */}
+      <NodeToolbar isVisible={!!data?.hovered} position={RFPosition.Top} align="center">
         <div
           style={{
             background: 'white',
@@ -97,9 +103,16 @@ function DeviceNode({ data, selected }) {
           }}
         >
           <div style={{ fontWeight: 800, marginBottom: 6 }}>
-          {data?.deviceId}
+            {/* {data?.deviceId}  */}
+            {data?.deviceName || data?.deviceId} 
           </div>
           <dl style={{ margin: 0, fontSize: 12, lineHeight: 1.6 }}>
+
+          {/* <div><dt style={{ display: 'inline', color: '#6b7280' }}>Type：</dt> <dd style={{ display: 'inline', margin: 0 }}>{data?.deviceId}</dd></div> */}
+            
+          {/* <div><dt style={{ display: 'inline', color: '#6b7280' }}>device name</dt> <dd style={{ display: 'inline', margin: 0 }}>{data?.deviceName}</dd></div> */}
+            
+            
             <div><dt style={{ display: 'inline', color: '#6b7280' }}>Type：</dt> <dd style={{ display: 'inline', margin: 0 }}>{data?.type}</dd></div>
             <div><dt style={{ display: 'inline', color: '#6b7280' }}>Status：</dt> <dd style={{ display: 'inline', margin: 0 }}>{data?.onlineStatus === true ? 'online' : 'offline'}</dd></div>
             {data?.statusText != null && (
@@ -116,8 +129,7 @@ function DeviceNode({ data, selected }) {
             )}
             {data?.lastUpdated && (
               <div><dt style={{ display: 'inline', color: '#6b7280' }}>Updated：</dt> <dd style={{ display: 'inline', margin: 0 }}>{new Date(data.lastUpdated).toLocaleString("en-US")}</dd></div>
-              // <div><dt style={{ display: 'inline', color: '#6b7280' }}>Updated：</dt> <dd style={{ display: 'inline', margin: 0 }}>{new Date(data.lastUpdated).toISOString()}</dd></div>
-           )}
+            )}
           </dl>
         </div>
       </NodeToolbar>
@@ -127,7 +139,7 @@ function DeviceNode({ data, selected }) {
 
 const nodeTypes = { device: DeviceNode };
 
-// ---- dagre 佈局設定（較鬆）----
+/* ---------------------- dagre 佈局設定 ---------------------- */
 const dagreGraph = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
 const nodeWidth = 180;
 const nodeHeight = 48;
@@ -140,19 +152,20 @@ const DAGRE_LAYOUT = {
   ranker: 'tight-tree',
 };
 
-// deviceData -> nodes
+/* ---------------------- 資料 → nodes/edges ---------------------- */
 function devicesToNodes(deviceData) {
   return (deviceData ?? []).map((d) => ({
     id: d.deviceId,
     type: 'device',
     data: {
       // Label 與基本屬性
-      label: d?.data?.label ?? d.deviceName ?? d.deviceId,
+ 
+      label: d?.data?.label ?? d.serialNumber ?? d.deviceId,
       deviceId: d.deviceId,
-      deviceName: d.deviceName,
+      deviceName: d.serialNumber,
       type: d.type,
 
-      // 這三個欄位務必帶入，供顏色規則判斷
+      // 供顏色規則判斷的關鍵欄位
       onlineStatus: d.onlineStatus === true,
       statusText: d.statusText ?? d?.data?.statusText ?? null,
       deviceEui: d.deviceEui ?? d?.data?.deviceEui ?? null,
@@ -163,13 +176,15 @@ function devicesToNodes(deviceData) {
       batteryLevel: d.batteryLevel,
       temperature: d.temperature,
       humidity: d.humidity,
+
+      // ★ 新增：hover 狀態（預設 false）
+      hovered: Boolean(d.hovered),
     },
     // 位置會被 dagre 覆寫
     position: d.position ?? { x: 0, y: 0 },
   }));
 }
 
-// deviceLink -> edges
 function linksToEdges(deviceLink) {
   return (deviceLink ?? [])
     .filter((e) => e.source && e.target)
@@ -184,7 +199,7 @@ function linksToEdges(deviceLink) {
     }));
 }
 
-// 佈局
+/* ---------------------- 佈局 ---------------------- */
 function getLayoutedElements(nodes, edges, direction = 'TB') {
   const isHorizontal = direction === 'LR';
   dagreGraph.setGraph({
@@ -214,13 +229,18 @@ function getLayoutedElements(nodes, edges, direction = 'TB') {
   return { nodes: newNodes, edges };
 }
 
+/* ---------------------- 主元件 ---------------------- */
 export default function Topology() {
-  const [deviceData, setDeviceData] = useState([]);   // nodes
-  const [deviceLink, setDeviceLink] = useState([]);   // edges
+  const [deviceData, setDeviceData] = useState([]);   // nodes 原始資料（非 ReactFlow nodes）
+  const [deviceLink, setDeviceLink] = useState([]);   // edges 原始資料（非 ReactFlow edges）
   const [rawData, setRawData] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // 目前滑鼠懸浮的節點 id（僅用於將 hovered 寫入 node.data）
+  const [hoverNodeId, setHoverNodeId] = useState(null);
+
+  // 初始化抓資料
   useEffect(() => {
     const ctrl = new AbortController();
     async function fetchData() {
@@ -246,7 +266,7 @@ export default function Topology() {
     return () => ctrl.abort();
   }, []);
 
-  // 初始化佈局
+  // 初始佈局
   const { nodes: layoutedNodes0, edges: layoutedEdges0 } = useMemo(() => {
     const n = devicesToNodes(deviceData);
     const e = linksToEdges(deviceLink);
@@ -266,7 +286,7 @@ export default function Topology() {
     setEdges(el);
   }, [deviceData, deviceLink, direction]);
 
-  // 連線（拖線時）
+  /* ----------- 連線（拖線時）保留原有功能 ----------- */
   const onConnect = useCallback(
     (params) => {
       setEdges((eds) =>
@@ -295,6 +315,32 @@ export default function Topology() {
     [setEdges, setDeviceLink]
   );
 
+  /* ----------- 滑鼠懸浮顯示 / 移開隱藏 NodeToolbar ----------- */
+  const showHoverFor = useCallback((id) => {
+    setHoverNodeId(id);
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === id
+          ? { ...n, data: { ...n.data, hovered: true } }
+          : (n.data?.hovered ? { ...n, data: { ...n.data, hovered: false } } : n)
+      )
+    );
+  }, [setNodes]);
+
+  const clearHover = useCallback((id) => {
+    setHoverNodeId((curr) => (curr === id ? null : curr));
+    setNodes((nds) =>
+      nds.map((n) => (n.data?.hovered ? { ...n, data: { ...n.data, hovered: false } } : n))
+    );
+  }, [setNodes]);
+
+  /**
+   * 注意：
+   * - 使用 ReactFlow 的 onNodeMouseEnter / onNodeMouseLeave（不會影響點擊、拖曳、連線等原功能）
+   * - NodeToolbar 會跟著 data.hovered 顯示/關閉
+   * - 若你希望滑到 Toolbar 上也不會關閉，可把 Toolbar 放大些或調整位置，
+   *   若仍有閃爍，可進一步在節點外層加上延時（本版先保持即時關閉以符合「移開就關閉」）
+   */
   return (
     <ReactFlow
       nodes={nodes}
@@ -307,6 +353,10 @@ export default function Topology() {
       fitView
       fitViewOptions={{ padding: 0.25 }}
       proOptions={{ hideAttribution: true }}
+
+      /* ★ 新增：滑鼠懸浮事件 */
+      onNodeMouseEnter={(_, node) => showHoverFor(node?.id)}
+      onNodeMouseLeave={(_, node) => clearHover(node?.id)}
     />
   );
 }

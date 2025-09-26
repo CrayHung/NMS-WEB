@@ -21,6 +21,8 @@ import DeviceKpiDashboard from "./pages/Network/pages/DeviceKpiDashboard";
 
 import CommandTest from './pages/CommandTest/CommandTest'
 
+import ExhibitSpectrumDemo from './pages/ExpoSpectrumDemo/ExpoSpectrumDemo'
+
 export default function ProtectedLayout() {
   const { rawData } = useGlobalContext();
 
@@ -42,6 +44,8 @@ export default function ProtectedLayout() {
             <Route path="/dashboard" element={<DeviceKpiDashboard device={rawData} historySize={60} />} />
             
             <Route path="/command-test" element={<CommandTest />} />
+
+            <Route path="/test" element={<ExhibitSpectrumDemo />} />
             
           </Routes>
         </div>

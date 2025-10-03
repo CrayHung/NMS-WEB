@@ -502,14 +502,14 @@
 // }
 
 // ExhibitSpectrumOneButton.jsx
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Card, Form, Button, Alert, Row, Col, Spinner } from 'react-bootstrap'
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
     ResponsiveContainer, ReferenceLine
 } from 'recharts'
 import { amplifierAPI } from './api'
-import { FiSend, FiRefreshCw, FiChevronUp, FiChevronDown } from 'react-icons/fi'
+import { FiSend, FiChevronUp, FiChevronDown } from 'react-icons/fi'
 import wsService from '../../service/websocket'
 
 const ExpoSpectrumDemo = () => {
@@ -527,9 +527,10 @@ const ExpoSpectrumDemo = () => {
     // FWD Loading Power Settings
     const [fwdLoadingPowerLow, setFwdLoadingPowerLow] = useState(30.0)
     const [fwdLoadingPowerHigh, setFwdLoadingPowerHigh] = useState(45.0)
-    const [settingInProgress, setSettingInProgress] = useState(false)
-    const [queryInProgress, setQueryInProgress] = useState(false)
-    const [settingStep, setSettingStep] = useState('idle')
+    
+    // 整合後的狀態
+    const [operationInProgress, setOperationInProgress] = useState(false)
+    const [operationStage, setOperationStage] = useState('idle') // 'setting_low' | 'setting_high' | 'querying' | 'idle'
 
     // RF Query Progress
     const [rfProgress, setRfProgress] = useState({
@@ -539,6 +540,9 @@ const ExpoSpectrumDemo = () => {
         totalParts: 6,
         progress: 0
     })
+
+    // 用 ref 追蹤是否需要自動查詢
+    const shouldAutoQueryRef = useRef(false)
 
     // Effect 1: Initial data loading (runs only once on mount)
     useEffect(() => {
@@ -563,38 +567,49 @@ const ExpoSpectrumDemo = () => {
 
         const handleRfComplete = (data) => {
             if (data.deviceEui === selectedDevice) {
-                setQueryInProgress(false);
+                setOperationInProgress(false);
+                setOperationStage('idle');
                 setRfProgress({ isCollecting: false, currentPart: '', completedParts: [], totalParts: 6, progress: 0 });
 
                 if (data.status === 'timeout') {
                     setMessage({ type: 'warning', text: `RF Power query timed out. Received only ${data.receivedParts?.length || 0}/6 parts.` });
                 } else {
-                    setMessage({ type: 'success', text: 'RF Power data query complete.' });
+                    setMessage({ type: 'success', text: 'Settings applied and RF Power data collected successfully!' });
                     handleRfPowerData(data);
                 }
             }
         };
 
         const handleCommandResponse = (data) => {
-             if (data.deviceEui === selectedDevice) {
+            if (data.deviceEui === selectedDevice) {
                 console.log('Received command response for setting:', data);
-                if (settingStep === 'setting_low') {
+                
+                if (operationStage === 'setting_low') {
+                    // Low 設定完成，送 High
                     sendHighPowerSetting();
                 } 
-                else if (settingStep === 'setting_high') {
+                else if (operationStage === 'setting_high') {
+                    // High 設定完成
                     setMessage({
                         type: 'success',
-                        text: `Settings applied successfully! Low: ${fwdLoadingPowerLow} dBmV, High: ${fwdLoadingPowerHigh} dBmV`
+                        text: `Settings applied successfully! Now querying RF Power data...`
                     });
-                    setSettingInProgress(false);
-                    setSettingStep('idle');
+                    
+                    // 如果是整合操作，自動查詢
+                    if (shouldAutoQueryRef.current) {
+                        setOperationStage('querying');
+                        queryRfPowerInternal();
+                    } else {
+                        setOperationInProgress(false);
+                        setOperationStage('idle');
+                    }
                 }
             }
         };
 
         // --- WebSocket Connection & Subscriptions ---
         if (selectedDevice) {
-             wsService.connect(() => {
+            wsService.connect(() => {
                 console.log('WebSocket connected successfully for device:', selectedDevice);
                 wsService.subscribe('/topic/rf-power-progress', handleRfProgress);
                 wsService.subscribe('/topic/rf-power-complete', handleRfComplete);
@@ -609,8 +624,7 @@ const ExpoSpectrumDemo = () => {
             wsService.unsubscribe('/topic/command-response');
         };
 
-    // Dependency Array: Re-runs the effect if these values change
-    }, [selectedDevice, settingStep, fwdLoadingPowerLow, fwdLoadingPowerHigh]);
+    }, [selectedDevice, operationStage, fwdLoadingPowerLow, fwdLoadingPowerHigh]);
 
     // Load device list
     const loadDevices = async () => {
@@ -675,61 +689,72 @@ const ExpoSpectrumDemo = () => {
         }
     }
 
-    // Start the two-step setting process
-    const startSettingProcess = async () => {
+    // 整合的操作：設定 + 查詢
+    const startIntegratedOperation = async () => {
         if (!selectedDevice) {
             setMessage({ type: 'warning', text: 'Please select a device first.' });
             return
         }
-        setSettingInProgress(true)
+        
+        shouldAutoQueryRef.current = true; // 標記需要自動查詢
+        setOperationInProgress(true)
         setMessage({ type: 'info', text: 'Sending Low Power setting...' })
-        setSettingStep('setting_low')
+        setOperationStage('setting_low')
 
         try {
-            const response = await amplifierAPI.setDeviceSettings(selectedDevice, { fwdLoadingPowerLow: parseFloat(fwdLoadingPowerLow) })
+            const response = await amplifierAPI.setDeviceSettings(selectedDevice, { 
+                fwdLoadingPowerLow: parseFloat(fwdLoadingPowerLow) 
+            })
             if (response.status === 'success') {
                 setMessage({ type: 'info', text: 'Low Power setting sent, waiting for device response...' })
             }
         } catch (error) {
             console.error('Failed to send low power setting:', error)
-            setMessage({ type: 'danger', text: 'Failed to set Low Power: ' + (error.response?.data?.message || error.message) })
-            setSettingInProgress(false)
-            setSettingStep('idle')
+            setMessage({ 
+                type: 'danger', 
+                text: 'Failed to set Low Power: ' + (error.response?.data?.message || error.message) 
+            })
+            setOperationInProgress(false)
+            setOperationStage('idle')
+            shouldAutoQueryRef.current = false
         }
     }
 
     // Send the second part of the settings
     const sendHighPowerSetting = async () => {
         setMessage({ type: 'info', text: 'Low Power Acknowledged. Sending High Power setting...' })
-        setSettingStep('setting_high')
+        setOperationStage('setting_high')
 
         try {
-            const response = await amplifierAPI.setDeviceSettings(selectedDevice, { fwdLoadingPowerHigh: parseFloat(fwdLoadingPowerHigh) })
+            const response = await amplifierAPI.setDeviceSettings(selectedDevice, { 
+                fwdLoadingPowerHigh: parseFloat(fwdLoadingPowerHigh) 
+            })
             if (response.status === 'success') {
                 setMessage({ type: 'info', text: 'High Power setting sent, waiting for device response...' })
             }
         } catch (error) {
             console.error('Failed to send high power setting:', error)
-            setMessage({ type: 'danger', text: 'Failed to set High Power: ' + (error.response?.data?.message || error.message) })
-            setSettingInProgress(false)
-            setSettingStep('idle')
+            setMessage({ 
+                type: 'danger', 
+                text: 'Failed to set High Power: ' + (error.response?.data?.message || error.message) 
+            })
+            setOperationInProgress(false)
+            setOperationStage('idle')
+            shouldAutoQueryRef.current = false
         }
     }
 
-    // Query RF Power
-    const queryRfPower = async () => {
-        if (!selectedDevice) {
-            setMessage({ type: 'warning', text: 'Please select a device first.' })
-            return
-        }
-        setQueryInProgress(true)
+    // 內部查詢函數（不改變 shouldAutoQueryRef）
+    const queryRfPowerInternal = async () => {
         setMessage({ type: 'info', text: 'Querying RF Power data...' })
         try {
             await amplifierAPI.queryAllRFPower(selectedDevice)
         } catch (error) {
             console.error('Failed to query RF power:', error)
             setMessage({ type: 'danger', text: 'Query failed: ' + error.message })
-            setQueryInProgress(false)
+            setOperationInProgress(false)
+            setOperationStage('idle')
+            shouldAutoQueryRef.current = false
         }
     }
 
@@ -747,6 +772,7 @@ const ExpoSpectrumDemo = () => {
             setQueriedRfData(filteredData)
             updateChartData(initialRfData, filteredData)
         }
+        shouldAutoQueryRef.current = false // 完成後重置
     }
 
     // Update chart data
@@ -781,6 +807,49 @@ const ExpoSpectrumDemo = () => {
         return null
     }
 
+    // 獲取按鈕顯示文字
+    const getButtonText = () => {
+        if (!operationInProgress) {
+            return (
+                <>
+                    <FiSend className="me-2" />
+                    Apply & Query
+                </>
+            )
+        }
+        
+        switch (operationStage) {
+            case 'setting_low':
+                return (
+                    <>
+                        <Spinner animation="border" size="sm" className="me-2" />
+                        Sending Low Setting...
+                    </>
+                )
+            case 'setting_high':
+                return (
+                    <>
+                        <Spinner animation="border" size="sm" className="me-2" />
+                        Sending High Setting...
+                    </>
+                )
+            case 'querying':
+                return (
+                    <>
+                        <Spinner animation="border" size="sm" className="me-2" />
+                        Querying RF Power...
+                    </>
+                )
+            default:
+                return (
+                    <>
+                        <Spinner animation="border" size="sm" className="me-2" />
+                        Processing...
+                    </>
+                )
+        }
+    }
+
     return (
         <div>
             {/* Control Panel */}
@@ -791,7 +860,11 @@ const ExpoSpectrumDemo = () => {
                         <Col md={6}>
                             <Form.Group>
                                 <Form.Label>Select Device</Form.Label>
-                                <Form.Select value={selectedDevice} onChange={(e) => handleDeviceChange(e.target.value)} disabled={loading || settingInProgress || queryInProgress}>
+                                <Form.Select 
+                                    value={selectedDevice} 
+                                    onChange={(e) => handleDeviceChange(e.target.value)} 
+                                    disabled={loading || operationInProgress}
+                                >
                                     <option value="">Select a device...</option>
                                     {devices.map(device => (
                                         <option key={device.deviceEui} value={device.deviceEui}>
@@ -810,7 +883,9 @@ const ExpoSpectrumDemo = () => {
                             <Form.Group>
                                 <Form.Label>FWD Power @ Low Freq</Form.Label>
                                 <div className="d-flex align-items-center">
-                                    <Form.Control type="number" value={fwdLoadingPowerLow}
+                                    <Form.Control 
+                                        type="number" 
+                                        value={fwdLoadingPowerLow}
                                         onChange={(e) => setFwdLoadingPowerLow(e.target.value)}
                                         onBlur={(e) => {
                                             let val = parseFloat(e.target.value);
@@ -819,13 +894,31 @@ const ExpoSpectrumDemo = () => {
                                             if (val > 40) val = 40.0;
                                             setFwdLoadingPowerLow(val.toFixed(1));
                                         }}
-                                        min="20" max="40" step="0.1" disabled={settingInProgress} style={{ width: '100px' }}
+                                        min="20" 
+                                        max="40" 
+                                        step="0.1" 
+                                        disabled={operationInProgress} 
+                                        style={{ width: '100px' }}
                                     />
                                     <div className="ms-2 d-flex flex-column">
-                                        <Button variant="outline-secondary" size="sm" onClick={() => adjustPowerLow(0.1)} disabled={settingInProgress} className="p-0" style={{ width: '24px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Button 
+                                            variant="outline-secondary" 
+                                            size="sm" 
+                                            onClick={() => adjustPowerLow(0.1)} 
+                                            disabled={operationInProgress} 
+                                            className="p-0" 
+                                            style={{ width: '24px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                        >
                                             <FiChevronUp />
                                         </Button>
-                                        <Button variant="outline-secondary" size="sm" onClick={() => adjustPowerLow(-0.1)} disabled={settingInProgress} className="p-0" style={{ width: '24px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Button 
+                                            variant="outline-secondary" 
+                                            size="sm" 
+                                            onClick={() => adjustPowerLow(-0.1)} 
+                                            disabled={operationInProgress} 
+                                            className="p-0" 
+                                            style={{ width: '24px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                        >
                                             <FiChevronDown />
                                         </Button>
                                     </div>
@@ -838,7 +931,9 @@ const ExpoSpectrumDemo = () => {
                             <Form.Group>
                                 <Form.Label>FWD Power @ High Freq</Form.Label>
                                 <div className="d-flex align-items-center">
-                                    <Form.Control type="number" value={fwdLoadingPowerHigh}
+                                    <Form.Control 
+                                        type="number" 
+                                        value={fwdLoadingPowerHigh}
                                         onChange={(e) => setFwdLoadingPowerHigh(e.target.value)}
                                         onBlur={(e) => {
                                             let val = parseFloat(e.target.value);
@@ -847,13 +942,31 @@ const ExpoSpectrumDemo = () => {
                                             if (val > 55) val = 55.0;
                                             setFwdLoadingPowerHigh(val.toFixed(1));
                                         }}
-                                        min="35" max="55" step="0.1" disabled={settingInProgress} style={{ width: '100px' }}
+                                        min="35" 
+                                        max="55" 
+                                        step="0.1" 
+                                        disabled={operationInProgress} 
+                                        style={{ width: '100px' }}
                                     />
                                     <div className="ms-2 d-flex flex-column">
-                                        <Button variant="outline-secondary" size="sm" onClick={() => adjustPowerHigh(0.1)} disabled={settingInProgress} className="p-0" style={{ width: '24px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Button 
+                                            variant="outline-secondary" 
+                                            size="sm" 
+                                            onClick={() => adjustPowerHigh(0.1)} 
+                                            disabled={operationInProgress} 
+                                            className="p-0" 
+                                            style={{ width: '24px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                        >
                                             <FiChevronUp />
                                         </Button>
-                                        <Button variant="outline-secondary" size="sm" onClick={() => adjustPowerHigh(-0.1)} disabled={settingInProgress} className="p-0" style={{ width: '24px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Button 
+                                            variant="outline-secondary" 
+                                            size="sm" 
+                                            onClick={() => adjustPowerHigh(-0.1)} 
+                                            disabled={operationInProgress} 
+                                            className="p-0" 
+                                            style={{ width: '24px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                        >
                                             <FiChevronDown />
                                         </Button>
                                     </div>
@@ -862,12 +975,14 @@ const ExpoSpectrumDemo = () => {
                             </Form.Group>
                         </Col>
 
-                        <Col md={4} className="d-flex align-items-end gap-2">
-                            <Button variant="primary" onClick={startSettingProcess} disabled={!selectedDevice || settingInProgress || queryInProgress}>
-                                {settingInProgress ? (<><Spinner animation="border" size="sm" className="me-2" />Sending...</>) : (<><FiSend className="me-2" />Send Settings</>)}
-                            </Button>
-                            <Button variant="info" onClick={queryRfPower} disabled={!selectedDevice || queryInProgress || settingInProgress}>
-                                {queryInProgress ? (<><Spinner animation="border" size="sm" className="me-2" />Querying...</>) : (<><FiRefreshCw className="me-2" />Query RF Power</>)}
+                        <Col md={4} className="d-flex align-items-end">
+                            <Button 
+                                variant="primary" 
+                                onClick={startIntegratedOperation} 
+                                disabled={!selectedDevice || operationInProgress}
+                                className="w-100"
+                            >
+                                {getButtonText()}
                             </Button>
                         </Col>
                     </Row>
@@ -877,9 +992,15 @@ const ExpoSpectrumDemo = () => {
                         <Row className="mb-3">
                             <Col>
                                 <div className="border rounded p-3 bg-light">
-                                    <h6 className="text-primary mb-2"><Spinner animation="border" size="sm" className="me-2" />Collecting RF Power Data...</h6>
+                                    <h6 className="text-primary mb-2">
+                                        <Spinner animation="border" size="sm" className="me-2" />
+                                        Collecting RF Power Data...
+                                    </h6>
                                     <div className="progress mb-2">
-                                        <div className="progress-bar progress-bar-striped progress-bar-animated" style={{ width: `${rfProgress.progress}%` }}>
+                                        <div 
+                                            className="progress-bar progress-bar-striped progress-bar-animated" 
+                                            style={{ width: `${rfProgress.progress}%` }}
+                                        >
                                             {Math.round(rfProgress.progress)}%
                                         </div>
                                     </div>
@@ -893,7 +1014,11 @@ const ExpoSpectrumDemo = () => {
                     )}
 
                     {/* Messages */}
-                    {message && (<Alert variant={message.type} dismissible onClose={() => setMessage(null)}>{message.text}</Alert>)}
+                    {message && (
+                        <Alert variant={message.type} dismissible onClose={() => setMessage(null)}>
+                            {message.text}
+                        </Alert>
+                    )}
                 </Card.Body>
             </Card>
 
@@ -906,29 +1031,62 @@ const ExpoSpectrumDemo = () => {
                             <ResponsiveContainer width="100%" height={400}>
                                 <BarChart data={chartData} margin={{ top: 20, right: 30, left: 45, bottom: 50 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-                                    <XAxis dataKey="frequency" label={{ value: 'Frequency (MHz)', position: 'insideBottom', offset: -5 }} domain={[111, 1809]} ticks={[111, 369, 627, 885, 1143, 1221, 1401, 1659, 1809]} tick={{ fontSize: 11 }} allowDataOverflow={true} interval={0} />
-                                    <YAxis label={{ value: 'Power (dBmV)', angle: -90, position: 'insideLeft' }} domain={[20, 60]} ticks={[20, 25, 30, 35, 40, 45, 50, 55, 60]} tick={{ fontSize: 11 }} />
-                                    <ReferenceLine y={fwdLoadingPowerLow} stroke="#28a745" strokeDasharray="5 5" strokeWidth={1.5} label={{ value: `Low: ${fwdLoadingPowerLow} dBmV`, position: "right", style: { fontSize: 10, fill: '#28a745' } }} />
-                                    <ReferenceLine y={fwdLoadingPowerHigh} stroke="#dc3545" strokeDasharray="5 5" strokeWidth={1.5} label={{ value: `High: ${fwdLoadingPowerHigh} dBmV`, position: "right", style: { fontSize: 10, fill: '#dc3545' } }} />
+                                    <XAxis 
+                                        dataKey="frequency" 
+                                        label={{ value: 'Frequency (MHz)', position: 'insideBottom', offset: -5 }} 
+                                        domain={[111, 1809]} 
+                                        ticks={[111, 369, 627, 885, 1143, 1221, 1401, 1659, 1809]} 
+                                        tick={{ fontSize: 11 }} 
+                                        allowDataOverflow={true} 
+                                        interval={0} 
+                                    />
+                                    <YAxis 
+                                        label={{ value: 'Power (dBmV)', angle: -90, position: 'insideLeft' }} 
+                                        domain={[20, 60]} 
+                                        ticks={[20, 25, 30, 35, 40, 45, 50, 55, 60]} 
+                                        tick={{ fontSize: 11 }} 
+                                    />
+                                    <ReferenceLine 
+                                        y={fwdLoadingPowerLow} 
+                                        stroke="#28a745" 
+                                        strokeDasharray="5 5" 
+                                        strokeWidth={1.5} 
+                                        label={{ 
+                                            value: `Low: ${fwdLoadingPowerLow} dBmV`, 
+                                            position: "right", 
+                                            style: { fontSize: 10, fill: '#28a745' } 
+                                        }} 
+                                    />
+                                    <ReferenceLine 
+                                        y={fwdLoadingPowerHigh} 
+                                        stroke="#dc3545" 
+                                        strokeDasharray="5 5" 
+                                        strokeWidth={1.5} 
+                                        label={{ 
+                                            value: `High: ${fwdLoadingPowerHigh} dBmV`, 
+                                            position: "right", 
+                                            style: { fontSize: 10, fill: '#dc3545' } 
+                                        }} 
+                                    />
                                     <Tooltip content={<CustomTooltip />} />
                                     <Legend verticalAlign="top" height={36} iconType="rect" />
-                                    <Bar dataKey="initialOutputPower" name="Initial Output Power" fill="#6c757d" barSize={4} />
-                                    {queriedRfData.length > 0 && (<Bar dataKey="queriedOutputPower" name="Queried Output Power" fill="#007bff" barSize={4} />)}
+                                    <Bar 
+                                        dataKey="initialOutputPower" 
+                                        name="Initial Output Power" 
+                                        fill="#6c757d" 
+                                        barSize={4} 
+                                    />
+                                    {queriedRfData.length > 0 && (
+                                        <Bar 
+                                            dataKey="queriedOutputPower" 
+                                            name="Queried Output Power" 
+                                            fill="#007bff" 
+                                            barSize={4} 
+                                        />
+                                    )}
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
-
-                        {/* Chart Legend */}
-                        {/* <div className="mt-3 p-3 bg-light rounded">
-                            <small className="text-muted">
-                                <strong>Chart Legend:</strong><br />
-                                • Gray Bars: Initial RF output power of the device.<br />
-                                • Blue Bars: RF output power after the new settings are applied.<br />
-                                • Green Line: Target for Low Freq ({fwdLoadingPowerLow} dBmV).<br />
-                                • Red Line: Target for High Freq ({fwdLoadingPowerHigh} dBmV).<br />
-                                • Compare bar sets to observe the effect of the settings.
-                            </small>
-                        </div> */}
                     </Card.Body>
                 </Card>
             )}

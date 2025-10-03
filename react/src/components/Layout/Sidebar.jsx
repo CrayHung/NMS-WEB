@@ -115,7 +115,7 @@ export default function Sidebar({ setCurrentPage }) {
     // { to: "/dashboard", label: "Dashboard", icon: <FaTachometerAlt /> }, 
     // { to: "/nodes", label: "Nodes", icon: <BsNodePlusFill /> },
 
-    { to: "/command-test", label: "Command Test", icon: <FiTerminal /> },
+    // { to: "/command-test", label: "Command Test", icon: <FiTerminal /> },
 
     { to: "/test", label: "Test", icon: <FiTerminal /> },
 

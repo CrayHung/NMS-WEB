@@ -118,7 +118,7 @@ function DeviceDetailModal({ deviceEui, onClose }) {
       return (
         <div>
           <Row k="Device EUI" v={data.deviceEui} />
-          <Row k="Part Name" v={data.partName} />
+          <Row k="Model Name" v={data.partName} />
           <Row k="Part Number" v={data.partNumber} />
           <Row k="Serial Number" v={data.serialNumber} />
           <Row k="HW Version" v={data.hwVersion} />

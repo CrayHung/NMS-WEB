@@ -568,7 +568,8 @@ import {
 import { apiUrl } from "../../../lib/api";
 
 // 預設顏色
-const DEFAULT_COLORS = { out: "#ef4444", in: "#3b82f6" };
+// const DEFAULT_COLORS = { out: "#ef4444", in: "#3b82f6" };
+const DEFAULT_COLORS = { out: "#dc2626", in: "#1d4ed8" };
 
 /* ========= 刻度產生工具：1,2,5 × 10^n ========= */
 function makeNiceStep(rawStep) {
@@ -724,9 +725,11 @@ export default function RFpower({
         <BarChart
           data={rows}
           margin={{ top: 6, right: 18, left: 10, bottom: 14 }} // 緊湊一些，避免溢出
-          barCategoryGap={2}
+          // barCategoryGap={2}
+          barCategoryGap={1} barGap={0}
         >
-          <CartesianGrid strokeDasharray="3 3" />
+          {/* <CartesianGrid strokeDasharray="3 3" /> */}
+          <CartesianGrid stroke="#e5e7eb" strokeDasharray="3 3" />  {/* 網格更淡 */}
           {/* <XAxis
             type="number"
             dataKey="frequency"
@@ -768,8 +771,24 @@ export default function RFpower({
           />
           <Legend />
           {/* 讓 Output 在下方、Input 疊在上方（覆蓋視覺） */}
-          <Bar dataKey="outputPower" fill={colors.out || DEFAULT_COLORS.out} />
-          <Bar dataKey="inputPower" fill={colors.in || DEFAULT_COLORS.in} />
+          {/* <Bar dataKey="outputPower" fill={colors.out || DEFAULT_COLORS.out} />
+          <Bar dataKey="inputPower" fill={colors.in || DEFAULT_COLORS.in} /> */}
+          <Bar
+            dataKey="outputPower"
+            fill={colors.out || DEFAULT_COLORS.out}
+            fillOpacity={1}
+            stroke={colors.out || DEFAULT_COLORS.out}
+            strokeOpacity={0.9}
+            strokeWidth={0.8}
+          />
+          <Bar
+            dataKey="inputPower"
+            fill={colors.in || DEFAULT_COLORS.in}
+            fillOpacity={1}
+            stroke={colors.in || DEFAULT_COLORS.in}
+            strokeOpacity={0.9}
+            strokeWidth={0.8}
+          />
         </BarChart>
       </ResponsiveContainer>
     </div>

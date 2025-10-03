@@ -600,6 +600,38 @@ import { FiSend, FiCheck, FiClock } from 'react-icons/fi'
 import { amplifierAPI } from './api'
 import RFpower from '../Network/pages/Rfpower';
 
+// —— 放在 import 區塊後面 —— //
+const parseMaybeJSON = (msg) => {
+    // 伺服器有時會送字串，有時已經是物件；這裡統一解析
+    if (msg == null) return msg;
+    if (typeof msg === 'string') {
+        try { return JSON.parse(msg); } catch { return msg; }
+    }
+    return msg;
+};
+
+const logWs = (topic, data) => {
+    // 美觀一點的 console
+    const ts = new Date().toISOString();
+    // 盡量不要把超大物件直接摔在同一行，避免把 console 卡住
+    console.groupCollapsed(
+        `%c[WS]%c ${topic} %c@ ${ts}`,
+        'color:#0ea5e9;font-weight:700;',
+        'color:inherit;font-weight:600;',
+        'color:#64748b;'
+    );
+    console.log('raw:', data);
+    const parsed = parseMaybeJSON(data);
+    console.log('parsed:', parsed);
+    // 如果有 pending request 也一起印
+    console.log('pendingRequestRef:', pendingRequestRef.current);
+    console.groupEnd();
+    return parsed;
+};
+
+
+
+
 // ✅ 若你已經有 RFpower 元件，之後可打開下面這行並在卡片內使用
 // import RFpower from '../Where/Your/RFpower'
 
@@ -721,36 +753,67 @@ const CommandTest = () => {
     // Initialize WebSocket connection
     const initWebSocket = () => {
         wsService.connect(() => {
-            setWsConnected(true)
+            console.log('[WS] connected (CommandTest)');
+            setWsConnected(true);
 
-            wsService.subscribe('/topic/command-response', (data) => {
-                handleCommandResponse(data)
-            })
-            wsService.subscribe('/topic/device-status', (data) => {
-                handleDeviceStatusUpdate(data)
-            })
-            wsService.subscribe('/topic/rf-power-complete', (data) => {
-                handleRfPowerComplete(data)
-            })
-        })
-    }
+            wsService.subscribe('/topic/command-response', (msg) => {
+                const data = logWs('/topic/command-response', msg);
+                handleCommandResponse(data);
+            });
+
+            wsService.subscribe('/topic/device-status', (msg) => {
+                const data = logWs('/topic/device-status', msg);
+                handleDeviceStatusUpdate(data);
+            });
+
+            wsService.subscribe('/topic/rf-power-complete', (msg) => {
+                const data = logWs('/topic/rf-power-complete', msg);
+                handleRfPowerComplete(data);
+            });
+        });
+    };
+
 
     // Handle command response
     const handleCommandResponse = (data) => {
-        if (pendingRequestRef.current &&
-            data.deviceEui === pendingRequestRef.current.deviceEui &&
-            data.commandType === pendingRequestRef.current.commandType) {
+        // if (pendingRequestRef.current &&
+        //     data.deviceEui === pendingRequestRef.current.deviceEui &&
+        //     data.commandType === pendingRequestRef.current.commandType) {
 
-            setResponseTime(new Date())
-            setAfterData(data.responseData)
-            setLoading(false)
-            setMessage({ type: 'success', text: `Received ${data.commandType} response` })
-            pendingRequestRef.current = null
+        //     setResponseTime(new Date())
+        //     setAfterData(data.responseData)
+        //     setLoading(false)
+        //     setMessage({ type: 'success', text: `Received ${data.commandType} response` })
+        //     pendingRequestRef.current = null
+        // }
+        const data2 = parseMaybeJSON(data);
+        const match =
+            pendingRequestRef.current &&
+            data2?.deviceEui === pendingRequestRef.current.deviceEui &&
+            data2?.commandType === pendingRequestRef.current.commandType;
+
+        console.log('[WS][handleCommandResponse] matchPending =', !!match, {
+            deviceEui: data2?.deviceEui,
+            commandType: data2?.commandType,
+            requestId: pendingRequestRef.current?.requestId,
+        });
+
+        if (match) {
+            setResponseTime(new Date());
+            setAfterData(data2.responseData);
+            setLoading(false);
+            setMessage({ type: 'success', text: `Received ${data2.commandType} response` });
+            pendingRequestRef.current = null;
         }
     }
 
     // Handle device status update（此頁忽略）
-    const handleDeviceStatusUpdate = () => { }
+    const handleDeviceStatusUpdate = (dataIn) => {
+        const data = parseMaybeJSON(dataIn);
+        console.log('[WS][handleDeviceStatusUpdate] (ignored by CommandTest)', {
+            deviceEui: data?.deviceEui,
+        });
+    }
 
     // Handle RF Power completion event
     const handleRfPowerComplete = (data) => {
@@ -807,7 +870,7 @@ const CommandTest = () => {
                     setMessage({ type: 'warning', text: 'Response timeout (90 sec)' })
                     pendingRequestRef.current = null
                 }
-            }, 90000)
+            }, 30000)
         } catch (error) {
             console.error('Failed to send command:', error)
             setLoading(false)
@@ -969,7 +1032,7 @@ const CommandTest = () => {
                                 </Form.Group>
                             </Col>
 
-                           
+
 
 
 

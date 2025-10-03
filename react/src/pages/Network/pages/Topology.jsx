@@ -147,8 +147,8 @@ const DAGRE_LAYOUT = {
   nodesep: 90,
   ranksep: 160,
   edgesep: 60,
-  marginx: 60,
-  marginy: 60,
+  marginx: 120,   // 左右留白更多
+  marginy: 120,   // 上下留白更多
   ranker: 'tight-tree',
 };
 
@@ -351,8 +351,11 @@ export default function Topology() {
       connectionLineType={ConnectionLineType.SmoothStep}
       nodeTypes={nodeTypes}
       fitView
-      fitViewOptions={{ padding: 0.25 }}
+      fitViewOptions={{ padding: 0.4, includeHiddenNodes: true }}
       proOptions={{ hideAttribution: true }}
+          zoomOnScroll
+      minZoom={0.4}
+      maxZoom={1.5}
 
       /* ★ 新增：滑鼠懸浮事件 */
       onNodeMouseEnter={(_, node) => showHoverFor(node?.id)}
